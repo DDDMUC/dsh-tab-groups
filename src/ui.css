@@ -1,0 +1,281 @@
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #1c1f23;
+  --muted: #6b7280;
+  --line: #e4e6eb;
+  --field: #f6f7f9;
+  --accent: #2f6bff;
+  --accent-fg: #ffffff;
+  --ok: #1f9254;
+  --warn: #b45309;
+  --err: #c0392b;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17191d;
+    --fg: #e8eaed;
+    --muted: #9aa1ab;
+    --line: #2c3038;
+    --field: #1f222a;
+    --accent: #5b8cff;
+    --accent-fg: #0b0d10;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --err: #f87171;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 13px/1.55 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+h1 {
+  font-size: 14px;
+  margin: 0;
+}
+
+h2 {
+  font-size: 13px;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: none;
+}
+
+button {
+  font: inherit;
+  color: var(--fg);
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+button:hover {
+  border-color: var(--accent);
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ------------------------------------------------------------- popup shell */
+
+body.popup {
+  width: 320px;
+  padding: 12px 14px 14px;
+}
+
+.popup header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.stat {
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 9px;
+  text-align: center;
+}
+.stat b {
+  display: block;
+  font-size: 18px;
+  line-height: 1.2;
+}
+.stat span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+.row button {
+  flex: 1;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 10px 0 0;
+  min-height: 1.4em;
+  white-space: pre-wrap;
+}
+.hint.ok {
+  color: var(--ok);
+}
+.hint.err {
+  color: var(--err);
+}
+
+/* ----------------------------------------------------------- toggle switch */
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex: none;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.switch i {
+  position: absolute;
+  inset: 0;
+  background: var(--line);
+  border-radius: 999px;
+  transition: background 0.15s;
+}
+.switch i::before {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 2px;
+  top: 2px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.15s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.switch input:checked + i {
+  background: var(--accent);
+}
+.switch input:checked + i::before {
+  transform: translateX(16px);
+}
+
+/* --------------------------------------------------------------- options */
+
+body.options {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+body.options h1 {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+body.options .sub {
+  color: var(--muted);
+  margin: 0 0 20px;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  background: var(--bg);
+}
+
+label.field {
+  display: block;
+  margin-bottom: 12px;
+}
+label.field > span {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+label.field small {
+  display: block;
+  color: var(--muted);
+  font-weight: 400;
+  margin-top: 4px;
+}
+
+input[type="text"],
+select,
+textarea {
+  font: inherit;
+  color: var(--fg);
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px 9px;
+  width: 100%;
+}
+textarea {
+  min-height: 66px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+input[type="text"]:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+input[type="text"].narrow {
+  max-width: 220px;
+}
+
+.check {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+.check input {
+  margin-top: 3px;
+  flex: none;
+}
+.check span b {
+  display: block;
+  font-weight: 600;
+}
+.check span small {
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  position: sticky;
+  bottom: 0;
+  background: var(--bg);
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.actions .status {
+  color: var(--muted);
+  font-size: 12px;
+}
+.actions .status.ok {
+  color: var(--ok);
+}
+.actions .status.err {
+  color: var(--err);
+}

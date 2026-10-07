@@ -1,0 +1,47 @@
+{
+  "name": "dsh-tab-groups",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "One package, two faces: a Chromium extension that automatically groups every DeepSeek Harness (DSH) Web GUI tab into one tab group, plus the DSH plugin that mirrors it to a fixed path, detects it in the Web GUI and drives it.",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "manifest.json",
+    "src",
+    "icons",
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "icons": "node tools/make-icons.mjs",
+    "id": "node tools/make-key.mjs",
+    "test": "node --test test/*.test.mjs",
+    "test:e2e": "node tools/e2e.mjs",
+    "test:mount": "bash tools/verify-profile.sh"
+  },
+  "dsh": {
+    "engines": {
+      "dsh": ">=0.2.0-rc.2"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
+    },
+    "compatibility": {
+      "dshReleases": {
+        "0.2.0-rc.2": "compatible"
+      }
+    }
+  },
+  "license": "MIT"
+}

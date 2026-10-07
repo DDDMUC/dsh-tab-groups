@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>DSH 标签页自动分组 · 设置</title>
+    <link rel="stylesheet" href="ui.css" />
+  </head>
+  <body class="options">
+    <h1>DSH 标签页自动分组</h1>
+    <p class="sub">
+      把浏览器里所有指向 DeepSeek Harness（DSH）Web GUI 的标签页，自动收进同一个标签组。
+      全部判断在本机完成，扩展不发起任何网络请求、不采集任何数据。
+    </p>
+
+    <form id="form">
+      <div class="card">
+        <h2>基本</h2>
+
+        <div class="check">
+          <input type="checkbox" id="enabled" />
+          <span>
+            <b>启用自动归组</b>
+            <small>关闭后扩展不再移动任何标签页，已存在的分组保持不变。</small>
+          </span>
+        </div>
+
+        <label class="field">
+          <span>组名</span>
+          <input type="text" id="groupTitle" class="narrow" placeholder="DSH" />
+          <small>扩展按这个组名认领已有分组（浏览器重启后组 ID 会变，靠组名找回）。</small>
+        </label>
+
+        <label class="field">
+          <span>组颜色</span>
+          <select id="groupColor" class="narrow"></select>
+        </label>
+
+        <div class="check">
+          <input type="checkbox" id="enforceAppearance" />
+          <span>
+            <b>始终使用上面的组名与颜色</b>
+            <small>关闭后，如果你手动改了组名，扩展会尊重你的改动，不再改回去。</small>
+          </span>
+        </div>
+
+        <div class="check">
+          <input type="checkbox" id="collapseGroup" />
+          <span>
+            <b>归组后自动折叠</b>
+            <small>标签栏只留一条彩色组条，需要时点开即可。扩展只会折叠，不会强行展开。</small>
+          </span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>怎么算一个「DSH 标签页」</h2>
+
+        <label class="field">
+          <span>按网页标题识别</span>
+          <textarea id="matchTitles" spellcheck="false"></textarea>
+          <small>
+            每行一个。DSH Web GUI 的标题固定是 <code>DeepSeek Harness</code>（写在它的 index.html 里，
+            宿主不会改写），所以这一条能同时覆盖随机端口、localhost/127.0.0.1、局域网地址和 cloudflared 隧道域名。
+          </small>
+        </label>
+
+        <div class="check">
+          <input type="checkbox" id="matchTitlePrefix" />
+          <span>
+            <b>允许标题前缀匹配</b>
+            <small>标题以规则开头、后面跟的是分隔符（如空格、<code>·</code>、<code>—</code>）时也算命中。</small>
+          </span>
+        </div>
+
+        <label class="field">
+          <span>按来源（origin）识别</span>
+          <textarea id="matchOrigins" spellcheck="false"></textarea>
+          <small>
+            每行一个，例如 <code>http://127.0.0.1:3080</code>；端口写成 <code>http://127.0.0.1:*</code> 表示任意端口。
+            这条规则让「页面标题还没加载出来」的瞬间也能立刻归组。
+          </small>
+        </label>
+
+        <div class="check">
+          <input type="checkbox" id="matchAnyLocalhostPort" />
+          <span>
+            <b>本机任意端口都算 DSH</b>
+            <small>把 localhost / 127.0.0.1 / [::1] 上的任何页面都当作 DSH。只在你不跑其他本地服务时开启。</small>
+          </span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>归组行为</h2>
+
+        <div class="check">
+          <input type="checkbox" id="moveFromOtherGroups" />
+          <span>
+            <b>把已在别的分组里的 DSH 标签页也拉过来</b>
+            <small>关闭后，只有不在任何分组里的 DSH 标签页会被归组。</small>
+          </span>
+        </div>
+
+        <div class="check">
+          <input type="checkbox" id="skipPinned" />
+          <span>
+            <b>跳过固定（pinned）标签页</b>
+            <small>Chromium 不允许固定标签页加入分组。保持开启可避免无谓的失败重试。</small>
+          </span>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="primary">保存</button>
+        <button type="button" id="group-now">保存并立即归组</button>
+        <button type="button" id="reset">恢复默认</button>
+        <span class="status" id="status"></span>
+      </div>
+    </form>
+
+    <div class="card">
+      <h2>预览：当前按上面的规则会命中哪些标签页</h2>
+      <div id="preview" class="sub">正在检测…</div>
+    </div>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>
