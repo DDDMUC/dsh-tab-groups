@@ -1,9 +1,8 @@
 {
   "name": "dsh-tab-groups",
   "version": "0.2.0",
-  "private": true,
+  "description": "Automatically group every DeepSeek Harness (DSH) Web GUI tab into one browser tab group. One package, two faces: the Chromium extension owns all grouping behaviour, and the DSH plugin mirrors it to a fixed path, detects it in the Web GUI, guides installation and drives it.",
   "type": "module",
-  "description": "One package, two faces: a Chromium extension that automatically groups every DeepSeek Harness (DSH) Web GUI tab into one tab group, plus the DSH plugin that mirrors it to a fixed path, detects it in the Web GUI and drives it.",
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
@@ -19,12 +18,34 @@
     "README.md",
     "LICENSE"
   ],
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "browser-extension",
+    "chrome-extension",
+    "tab-groups",
+    "tabs"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DDDMUC/dsh-tab-groups.git"
+  },
+  "homepage": "https://github.com/DDDMUC/dsh-tab-groups#readme",
+  "bugs": {
+    "url": "https://github.com/DDDMUC/dsh-tab-groups/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "icons": "node tools/make-icons.mjs",
     "id": "node tools/make-key.mjs",
     "test": "node --test test/*.test.mjs",
     "test:e2e": "node tools/e2e.mjs",
-    "test:mount": "bash tools/verify-profile.sh"
+    "test:mount": "bash tools/verify-profile.sh",
+    "screenshots": "bash tools/with-scratch-profile.sh node tools/make-screenshots.mjs"
   },
   "dsh": {
     "engines": {
@@ -42,6 +63,5 @@
         "0.2.0-rc.2": "compatible"
       }
     }
-  },
-  "license": "MIT"
+  }
 }
