@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>DSH 标签页自动分组</title>
+    <link rel="stylesheet" href="ui.css" />
+  </head>
+  <body class="popup">
+    <header>
+      <h1>DSH 标签页自动分组</h1>
+      <label class="switch" title="启用/停用自动归组">
+        <input type="checkbox" id="enabled" />
+        <i></i>
+      </label>
+    </header>
+
+    <section class="stats">
+      <div class="stat"><b id="stat-dsh">–</b><span>DSH 标签页</span></div>
+      <div class="stat"><b id="stat-pending">–</b><span>待归组</span></div>
+      <div class="stat"><b id="stat-groups">–</b><span>涉及窗口</span></div>
+    </section>
+
+    <div class="row">
+      <button id="reconcile" class="primary">立即归组</button>
+      <button id="open-options">设置</button>
+    </div>
+
+    <p class="hint" id="hint">正在读取状态…</p>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

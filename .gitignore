@@ -1,0 +1,16 @@
+# Dependencies (this package ships none, but tests/tools may pull some in).
+node_modules/
+
+# macOS
+.DS_Store
+
+# Never commit a private key or a packaged extension.
+# `node tools/make-key.mjs --new` prints a private key for .crx packing; it must
+# stay out of the tree (store review rejects an extension that carries one, and
+# the pinned public key in manifest.json is all the repo needs).
+keys/
+*.pem
+*.crx
+
+# Local logs / scratch
+*.log

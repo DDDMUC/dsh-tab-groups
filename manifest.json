@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "DSH 标签页自动分组",
+  "short_name": "DSH Tab Groups",
+  "version": "0.2.0",
+  "description": "把浏览器中所有指向 DeepSeek Harness（DSH）Web GUI 的标签页自动收进同一个标签组，并允许 DSH GUI 页面直接查询状态、触发归组与改配置。纯本地运行，不联网、不上报。",
+  "minimum_chrome_version": "89",
+  "permissions": [
+    "tabs",
+    "tabGroups",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "externally_connectable": {
+    "matches": [
+      "http://127.0.0.1/*",
+      "http://localhost/*",
+      "https://*.dsh-market.com/*"
+    ]
+  },
+  "action": {
+    "default_title": "DSH 标签页自动分组",
+    "default_popup": "src/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_ui": {
+    "page": "src/options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnrawAv7y6IFKT7RUuCoTqDjAJCvDroP7c8pPrfkiNMCdSJiUca690uYE/o9iS+ud1ATBuve+Fon8ARNqqZ2E2rNWNeu/CDmM6tkoagPhg8knUSP0slZCdrC6LvNbI4TOu30jL6Qhd7PYIcgKvZ2g+4ipc1+E4d98nMNQCNyYJgXwiPkXkHhH8DpIctzYq6SR/5onAs95nVZdJw/vXk9N4YGLanMm16m4kZQARjRaYWsNmmkz5ayZElZmJevGwGZW/X/axzI0bYCdqCB7Sw9J9/C7bqR1UyV60ULe71LmnpLdMnU8/GWu3I0ZGX8vUwbLGPMz+UuheTunSiV0MTQ9dQIDAQAB"
+}

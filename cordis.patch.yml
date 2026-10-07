@@ -1,0 +1,34 @@
+# dsh-tab-groups bundle patch: inserts the plugin row into the profile roster.
+#
+# This package carries two faces in one directory:
+#
+#   * the browser extension  — manifest.json + src/ + icons/, loaded into Edge
+#     or Chrome via "Load unpacked". It owns all tab-group behavior, because a
+#     GUI page has no access to chrome.tabs / chrome.tabGroups.
+#   * the DSH plugin         — lib/index.js (host) + lib/client.js (browser).
+#     The host half mirrors the extension face into
+#     ~/.dsh/dsh-tab-groups-extension so "Load unpacked" has a fixed, known
+#     path; the browser half renders a status chip in the Web GUI that detects
+#     the extension (through Chromium's externally_connectable bridge), guides
+#     installation when it is missing, and drives it (status / group now /
+#     group name and color) once it is present.
+#
+# Installing this plugin is therefore enough to know exactly what to load into
+# the browser. It cannot be enough to *install* it: on macOS, Edge only
+# force-installs extensions from the Edge Add-ons store, or on machines managed
+# by MDM — see tools/e2e.mjs and the README for the citations. One click in
+# edge://extensions is the part no plugin can perform.
+#
+# The entry name is the BARE package name on purpose: the client-module scanner
+# treats it as a package specifier and resolves `<name>/package.json`, so a
+# subpath entry would be cached as "not a client package" and the browser half
+# would silently never load.
+#
+# A bundle-row change is a profile composition change: enabling, disabling or
+# updating this plugin takes effect on the next page load for the browser half,
+# and after a host restart for the row itself (unless the profile sets
+# `patchReload: live`, in which case the row hot-loads and a page refresh is
+# enough).
+- insert:
+    - id: dsh-tab-groups
+      name: 'dsh-tab-groups'
