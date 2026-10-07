@@ -325,3 +325,163 @@ test('summarize ignores pinned tabs exactly like the plan does', () => {
     2,
   )
 })
+
+/* ----------------------------------------------- dedicated window plan */
+
+import { planWindowConsolidation, dshTabsByWindow } from '../src/rules.js'
+
+const win = (id, type = 'normal') => ({ id, type })
+const dshConfig = (over = {}) => normalizeConfig({ ...DEFAULT_CONFIG, dedicatedWindow: true, ...over })
+
+test('window consolidation does nothing while the mode is off', () => {
+  const tabs = [tab({ id: 1, windowId: 1 })]
+  const plan = planWindowConsolidation({ tabs, windows: [win(1)], config: config() })
+  assert.deepEqual(plan, {
+    needed: false,
+    create: false,
+    seedTabId: null,
+    moveTabIds: [],
+    targetWindowId: null,
+    homeWindowId: null,
+    clearHome: false,
+  })
+})
+
+test('a window holding only DSH tabs is adopted, and the strays are moved in', () => {
+  const tabs = [
+    tab({ id: 1, windowId: 1 }),
+    tab({ id: 2, windowId: 1 }),
+    tab({ id: 3, windowId: 2 }),
+    tab({ id: 4, windowId: 2, title: 'GitHub', url: 'https://github.com/' }),
+  ]
+  const plan = planWindowConsolidation({ tabs, windows: [win(1), win(2)], config: dshConfig() })
+  assert.equal(plan.needed, true)
+  assert.equal(plan.create, false)
+  assert.equal(plan.targetWindowId, 1, 'window 1 is the only DSH-only window')
+  assert.deepEqual(plan.moveTabIds, [3])
+})
+
+test('a window that also holds ordinary tabs is never adopted — a new one is created', () => {
+  const tabs = [
+    tab({ id: 1, windowId: 1 }),
+    tab({ id: 2, windowId: 1, title: 'GitHub', url: 'https://github.com/' }),
+    tab({ id: 3, windowId: 1 }),
+  ]
+  const plan = planWindowConsolidation({ tabs, windows: [win(1)], config: dshConfig() })
+  assert.equal(plan.create, true)
+  assert.equal(plan.seedTabId, 1, 'seeded with a DSH tab, so no stray about:blank appears')
+  assert.deepEqual(plan.moveTabIds, [3])
+  assert.equal(plan.targetWindowId, null)
+
+  // The user's own tab is never scheduled for a move.
+  assert.ok(!plan.moveTabIds.includes(2))
+})
+
+test('the remembered window wins even when another DSH-only window has more tabs', () => {
+  const tabs = [tab({ id: 1, windowId: 1 }), tab({ id: 2, windowId: 2 }), tab({ id: 3, windowId: 2 })]
+  const plan = planWindowConsolidation({
+    tabs,
+    windows: [win(1), win(2)],
+    config: dshConfig(),
+    storedHomeWindow: 1,
+  })
+  assert.equal(plan.targetWindowId, 1)
+  assert.deepEqual(plan.moveTabIds, [2, 3])
+})
+
+test('a stale remembered window is replaced by another DSH-only window', () => {
+  const tabs = [tab({ id: 1, windowId: 1 }), tab({ id: 2, windowId: 2 })]
+  const plan = planWindowConsolidation({
+    tabs,
+    windows: [win(1), win(2)],
+    config: dshConfig(),
+    storedHomeWindow: 99,
+  })
+  assert.equal(plan.create, false)
+  assert.ok([1, 2].includes(plan.targetWindowId))
+  assert.equal(plan.clearHome, true, 'the dead id is forgotten')
+})
+
+test('a popup window is never adopted as home', () => {
+  const tabs = [tab({ id: 1, windowId: 7 }), tab({ id: 2, windowId: 1 })]
+  const plan = planWindowConsolidation({
+    tabs,
+    windows: [win(7, 'popup'), win(1, 'normal')],
+    config: dshConfig(),
+  })
+  assert.equal(plan.create, false)
+  assert.equal(plan.targetWindowId, 1)
+  assert.deepEqual(plan.moveTabIds, [1])
+})
+
+test('everything already in the home window is a no-op (idempotent)', () => {
+  const tabs = [tab({ id: 1, windowId: 5 }), tab({ id: 2, windowId: 5 })]
+  const plan = planWindowConsolidation({
+    tabs,
+    windows: [win(5)],
+    config: dshConfig(),
+    storedHomeWindow: 5,
+  })
+  assert.equal(plan.needed, false)
+  assert.deepEqual(plan.moveTabIds, [])
+})
+
+test('pinned DSH tabs are never moved: a cross-window move would silently unpin them', () => {
+  const tabs = [
+    tab({ id: 1, windowId: 1, pinned: true }),
+    tab({ id: 2, windowId: 1 }),
+    tab({ id: 3, windowId: 1 }),
+  ]
+  // Window 1 holds only DSH tabs, so it is home; the pinned tab is already
+  // there and must simply be left alone rather than moved anywhere.
+  const plan = planWindowConsolidation({ tabs, windows: [win(1)], config: dshConfig() })
+  assert.equal(plan.needed, false)
+  assert.deepEqual(plan.moveTabIds, [])
+
+  // With the pinned tab in a *different* window it stays behind, even though
+  // the mode is on and skipPinned is off.
+  const spread = [
+    tab({ id: 1, windowId: 1, pinned: true }),
+    tab({ id: 2, windowId: 1 }),
+    tab({ id: 3, windowId: 1 }),
+    tab({ id: 4, windowId: 2 }),
+  ]
+  const plan2 = planWindowConsolidation({
+    tabs: spread,
+    windows: [win(1), win(2)],
+    config: dshConfig({ skipPinned: false }),
+  })
+  assert.equal(plan2.targetWindowId, 1)
+  assert.deepEqual(plan2.moveTabIds, [4])
+  assert.ok(!plan2.moveTabIds.includes(1))
+})
+
+test('no DSH tabs left forgets the remembered window', () => {
+  const tabs = [tab({ id: 1, title: 'GitHub', url: 'https://github.com/' })]
+  const plan = planWindowConsolidation({
+    tabs,
+    windows: [win(1)],
+    config: dshConfig(),
+    storedHomeWindow: 3,
+  })
+  assert.equal(plan.clearHome, true)
+  assert.equal(plan.needed, false)
+})
+
+test('a single DSH tab in a shared window still gets its own window', () => {
+  const tabs = [
+    tab({ id: 1, windowId: 1 }),
+    tab({ id: 2, windowId: 1, title: 'GitHub', url: 'https://github.com/' }),
+  ]
+  const plan = planWindowConsolidation({ tabs, windows: [win(1)], config: dshConfig() })
+  assert.equal(plan.create, true)
+  assert.equal(plan.seedTabId, 1)
+  assert.deepEqual(plan.moveTabIds, [], 'the seed tab becomes the new window')
+})
+
+test('dshTabsByWindow counts per window', () => {
+  const tabs = [tab({ id: 1, windowId: 1 }), tab({ id: 2, windowId: 2 }), tab({ id: 3, windowId: 2 })]
+  const counts = dshTabsByWindow(tabs, config())
+  assert.equal(counts.get(1), 1)
+  assert.equal(counts.get(2), 2)
+})

@@ -58,6 +58,14 @@ export const DEFAULT_CONFIG = {
   moveFromOtherGroups: true,
   /** Pinned tabs cannot join a group; leave them where they are. */
   skipPinned: true,
+  /**
+   * Consolidate every DSH tab into one dedicated window that holds nothing but
+   * DSH tabs. Off by default: turning it on means even the first DSH tab you
+   * open can spawn a window.
+   */
+  dedicatedWindow: false,
+  /** Focus that window when it is created (off: never steal focus). */
+  focusDedicatedWindow: false,
 }
 
 const GROUP_COLOR_SET = new Set(GROUP_COLORS)
@@ -116,6 +124,8 @@ export function normalizeConfig(raw) {
     ),
     moveFromOtherGroups: asBoolean(input.moveFromOtherGroups, DEFAULT_CONFIG.moveFromOtherGroups),
     skipPinned: asBoolean(input.skipPinned, DEFAULT_CONFIG.skipPinned),
+    dedicatedWindow: asBoolean(input.dedicatedWindow, DEFAULT_CONFIG.dedicatedWindow),
+    focusDedicatedWindow: asBoolean(input.focusDedicatedWindow, DEFAULT_CONFIG.focusDedicatedWindow),
   }
 }
 

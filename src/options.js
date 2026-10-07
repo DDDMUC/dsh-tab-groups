@@ -19,6 +19,8 @@ const fields = {
   matchAnyLocalhostPort: el('matchAnyLocalhostPort'),
   moveFromOtherGroups: el('moveFromOtherGroups'),
   skipPinned: el('skipPinned'),
+  dedicatedWindow: el('dedicatedWindow'),
+  focusDedicatedWindow: el('focusDedicatedWindow'),
 }
 
 const statusEl = el('status')
@@ -50,6 +52,8 @@ function readForm() {
     matchAnyLocalhostPort: fields.matchAnyLocalhostPort.checked,
     moveFromOtherGroups: fields.moveFromOtherGroups.checked,
     skipPinned: fields.skipPinned.checked,
+    dedicatedWindow: fields.dedicatedWindow.checked,
+    focusDedicatedWindow: fields.focusDedicatedWindow.checked,
   })
 }
 
@@ -65,6 +69,8 @@ function writeForm(config) {
   fields.matchAnyLocalhostPort.checked = config.matchAnyLocalhostPort
   fields.moveFromOtherGroups.checked = config.moveFromOtherGroups
   fields.skipPinned.checked = config.skipPinned
+  fields.dedicatedWindow.checked = config.dedicatedWindow
+  fields.focusDedicatedWindow.checked = config.focusDedicatedWindow
 }
 
 async function loadConfig() {

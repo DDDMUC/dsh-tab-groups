@@ -203,6 +203,112 @@ export function planAssignments({ tabs, groups, config, storedByWindow = {} }) {
 }
 
 /**
+ * Decide how to consolidate every DSH tab into one dedicated window.
+ *
+ * The target is a window that contains **nothing but DSH tabs**. A window that
+ * also holds ordinary tabs is never adopted — moving the user's own tabs out of
+ * it would be far more invasive than what was asked for — so a new window is
+ * created instead and the DSH tabs are moved into it.
+ *
+ * Pinned DSH tabs are left behind even when `skipPinned` is off: a cross-window
+ * `tabs.move` silently *unpins* a pinned tab (verified in a real browser), and
+ * quietly dropping someone's pin is worse than not moving the tab.
+ *
+ * @param {object} input
+ * @param {Array<object>} input.tabs browser tabs (chrome.tabs.Tab shaped)
+ * @param {Array<{id: number, type?: string}>} [input.windows] windows, to tell a
+ *   normal window from a popup window; omitted means "all normal"
+ * @param {object} input.config normalized config
+ * @param {number|null} [input.storedHomeWindow] the remembered DSH window
+ * @returns {{needed: boolean, create: boolean, seedTabId: number|null,
+ *   moveTabIds: number[], targetWindowId: number|null, homeWindowId: number|null,
+ *   clearHome: boolean}}
+ */
+export function planWindowConsolidation({ tabs, windows, config, storedHomeWindow = null }) {
+  const idle = {
+    needed: false,
+    create: false,
+    seedTabId: null,
+    moveTabIds: [],
+    targetWindowId: null,
+    homeWindowId: null,
+    clearHome: false,
+  }
+  if (!config || config.enabled === false || config.dedicatedWindow !== true) return idle
+
+  const list = (tabs ?? []).filter((tab) => tab && tab.id != null)
+  const dsh = list.filter((tab) => isDshTab(tab, config))
+  // Nothing DSH left: forget the remembered window (the browser closes an
+  // emptied window on its own, so the id would be stale next time).
+  if (dsh.length === 0) return { ...idle, clearHome: storedHomeWindow != null }
+
+  // A cross-window move drops the pin, so pinned tabs never participate.
+  const movable = dsh.filter((tab) => tab.pinned !== true)
+  if (movable.length === 0) return idle
+
+  const normalWindows =
+    Array.isArray(windows) && windows.length > 0
+      ? new Set(windows.filter((win) => (win.type ?? 'normal') === 'normal').map((win) => win.id))
+      : null
+  const isNormal = (windowId) => normalWindows === null || normalWindows.has(windowId)
+
+  /** Does this window hold nothing but DSH tabs? */
+  const holdsOnlyDsh = (windowId) => {
+    const inWindow = list.filter((tab) => tab.windowId === windowId)
+    return inWindow.length > 0 && inWindow.every((tab) => isDshTab(tab, config))
+  }
+
+  // Prefer the remembered window, then the DSH-only window holding the most DSH
+  // tabs (fewest moves), and otherwise build one.
+  let home = null
+  if (storedHomeWindow != null && isNormal(storedHomeWindow) && holdsOnlyDsh(storedHomeWindow)) {
+    home = storedHomeWindow
+  } else {
+    const exclusive = [...new Set(dsh.map((tab) => tab.windowId))]
+      .filter((windowId) => isNormal(windowId) && holdsOnlyDsh(windowId))
+      .sort(
+        (a, b) =>
+          dsh.filter((tab) => tab.windowId === b).length - dsh.filter((tab) => tab.windowId === a).length,
+      )
+    if (exclusive.length > 0) home = exclusive[0]
+  }
+
+  if (home === null) {
+    // Seed the new window with the first movable tab, so it is never born with
+    // a stray about:blank tab of its own.
+    return {
+      needed: true,
+      create: true,
+      seedTabId: movable[0].id,
+      moveTabIds: movable.slice(1).map((tab) => tab.id),
+      targetWindowId: null,
+      homeWindowId: null,
+      clearHome: false,
+    }
+  }
+
+  const moveTabIds = movable.filter((tab) => tab.windowId !== home).map((tab) => tab.id)
+  return {
+    needed: moveTabIds.length > 0,
+    create: false,
+    seedTabId: null,
+    moveTabIds,
+    targetWindowId: home,
+    homeWindowId: home,
+    clearHome: storedHomeWindow != null && storedHomeWindow !== home,
+  }
+}
+
+/** How many DSH tabs each window holds — diagnostics and tests. */
+export function dshTabsByWindow(tabs, config) {
+  const counts = new Map()
+  for (const tab of (tabs ?? []).filter((candidate) => candidate && isDshTab(candidate, config))) {
+    counts.set(tab.windowId, (counts.get(tab.windowId) ?? 0) + 1)
+  }
+  return counts
+}
+
+/**
  * Counts for the popup: how many DSH tabs exist, and how many of them the
  * current plan still has to move into the owned group.
  */
