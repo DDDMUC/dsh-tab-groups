@@ -110,6 +110,34 @@
         </div>
       </div>
 
+      <div class="card">
+        <h2>窗口</h2>
+
+        <div class="check">
+          <input type="checkbox" id="dedicatedWindow" />
+          <span>
+            <b>把所有 DSH 标签页收进一个专属窗口</b>
+            <small>
+              只认领「整窗都已经是 DSH 标签页」的窗口做归属；否则新建一个窗口，把 DSH 标签页搬进去，
+              从不动你自己的普通标签页。原来的窗口被搬空后会由浏览器自动关闭。
+            </small>
+          </span>
+        </div>
+
+        <div class="check">
+          <input type="checkbox" id="focusDedicatedWindow" />
+          <span>
+            <b>新建专属窗口时抢焦点</b>
+            <small>默认不抢：你在别的窗口干活时不会被弹走。</small>
+          </span>
+        </div>
+
+        <p class="sub" style="margin: 4px 0 0">
+          两点要注意：开启后<b>打开第一个 DSH 标签页也会新建窗口</b>；<b>固定标签页不会被搬</b>——
+          因为 Chromium 把固定标签页跨窗口移动时会静默取消固定（实测），悄悄丢掉你的固定比不搬更糟。
+        </p>
+      </div>
+
       <div class="actions">
         <button type="submit" class="primary">保存</button>
         <button type="button" id="group-now">保存并立即归组</button>

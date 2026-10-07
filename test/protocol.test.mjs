@@ -76,7 +76,7 @@ test('statusPayload exposes counts and settings but no tab contents', () => {
     version: '0.2.0',
     config: normalizeConfig(DEFAULT_CONFIG),
     summary: { matched: 3, pending: 1, windows: 2 },
-    lastRun: { at: 1234, reason: 'manual', moved: 2, errors: ['boom'] },
+    lastRun: { at: 1234, reason: 'manual', moved: 2, windowsMoved: 5, errors: ['boom'] },
   })
   assert.equal(payload.ok, true)
   assert.equal(payload.protocol, PROTOCOL_VERSION)
@@ -85,11 +85,46 @@ test('statusPayload exposes counts and settings but no tab contents', () => {
   assert.equal(payload.matched, 3)
   assert.equal(payload.pending, 1)
   assert.equal(payload.windows, 2)
-  assert.deepEqual(payload.lastRun, { at: 1234, reason: 'manual', moved: 2, errors: ['boom'] })
+  assert.deepEqual(payload.lastRun, {
+    at: 1234,
+    reason: 'manual',
+    moved: 2,
+    windowsMoved: 5,
+    errors: ['boom'],
+  })
   // The protocol deliberately carries no urls, titles or tab ids: a page on the
   // loopback host learns how many DSH tabs exist, never what they are.
   const serialized = JSON.stringify(payload)
   assert.doesNotMatch(serialized, /"urls?"|"titles?"|"tabs?"|"tabIds?"/)
+})
+
+test('statusPayload exposes both window modes', () => {
+  const off = statusPayload({
+    id: 'a',
+    version: '1',
+    config: normalizeConfig(DEFAULT_CONFIG),
+    summary: { matched: 1, pending: 1, windows: 1 },
+    lastRun: null,
+  })
+  assert.equal(off.dedicatedWindow, false)
+  assert.equal(off.focusDedicatedWindow, false)
+
+  const on = statusPayload({
+    id: 'a',
+    version: '1',
+    config: normalizeConfig({ ...DEFAULT_CONFIG, dedicatedWindow: true, focusDedicatedWindow: true }),
+    summary: { matched: 1, pending: 1, windows: 1 },
+    lastRun: null,
+  })
+  assert.equal(on.dedicatedWindow, true)
+  assert.equal(on.focusDedicatedWindow, true)
+})
+
+test('a page may switch the dedicated window on, and nothing else', () => {
+  const accepted = sanitizeConfigPatch({ dedicatedWindow: true, focusDedicatedWindow: true })
+  assert.equal(accepted.ok, true)
+  assert.equal(accepted.config.dedicatedWindow, true)
+  assert.equal(sanitizeConfigPatch({ dedicatedWindow: 'yes' }).ok, false)
 })
 
 test('statusPayload renders a missing lastRun as null', () => {

@@ -9,20 +9,23 @@
 
 import { DEFAULT_CONFIG, normalizeConfig, toStringList } from './config.js'
 import { errorPayload, pingPayload, sanitizeConfigPatch, statusPayload } from './protocol.js'
-import { planAssignments, summarize } from './rules.js'
+import { planAssignments, planWindowConsolidation, summarize } from './rules.js'
 
 const LOG_PREFIX = '[dsh-tab-groups]'
 const CONFIG_KEY = 'config'
 const SESSION_KEY = 'groupByWindow'
+const HOME_WINDOW_KEY = 'homeWindow'
 
 /** @type {ReturnType<typeof normalizeConfig>} */
 let config = normalizeConfig(DEFAULT_CONFIG)
 /** windowId -> id of the tab group this extension owns in that window. */
 let groupByWindow = {}
+/** The window the dedicated-window mode consolidates DSH tabs into. */
+let homeWindow = null
 let sessionApiAvailable = true
 let timer = null
 let chain = Promise.resolve()
-/** @type {null | {at: number, reason: string, matched: number, moved: number, groups: number, errors: string[]}} */
+/** @type {null | {at: number, reason: string, matched: number, moved: number, groups: number, windowsMoved: number, errors: string[]}} */
 let lastRun = null
 
 function log(...args) {
@@ -55,21 +58,24 @@ async function saveConfig(patch) {
 async function loadSession() {
   if (!sessionApiAvailable) return
   try {
-    const stored = await chrome.storage.session.get(SESSION_KEY)
+    const stored = await chrome.storage.session.get([SESSION_KEY, HOME_WINDOW_KEY])
     const value = stored?.[SESSION_KEY]
     groupByWindow = value && typeof value === 'object' ? { ...value } : {}
+    const home = stored?.[HOME_WINDOW_KEY]
+    homeWindow = typeof home === 'number' ? home : null
   } catch {
     // chrome.storage.session is unavailable (older Chromium): fall back to
     // memory. The title-based lookup still recovers the owned group.
     sessionApiAvailable = false
     groupByWindow = {}
+    homeWindow = null
   }
 }
 
 async function saveSession() {
   if (!sessionApiAvailable) return
   try {
-    await chrome.storage.session.set({ [SESSION_KEY]: groupByWindow })
+    await chrome.storage.session.set({ [SESSION_KEY]: groupByWindow, [HOME_WINDOW_KEY]: homeWindow })
   } catch (error) {
     sessionApiAvailable = false
     warn('保存会话状态失败，退化为内存状态', error)
@@ -79,16 +85,71 @@ async function saveSession() {
 /* ----------------------------------------------------------- reconciliation */
 
 /**
+ * Apply the dedicated-window plan: move every movable DSH tab into the one
+ * window that holds nothing but DSH tabs, creating it when none exists.
+ *
+ * A window is never created with `windows.create()` alone — that leaves a stray
+ * about:blank tab behind (verified) — it is seeded with one of the DSH tabs.
+ * Pinned tabs stay put: a cross-window move would silently unpin them.
+ *
+ * @param {Array<object>} tabs the current tab snapshot
+ * @returns {Promise<{applied: boolean, moved: number}>}
+ */
+async function consolidateWindows(tabs) {
+  if (config.enabled === false || config.dedicatedWindow !== true) return { applied: false, moved: 0 }
+
+  const windows = await chrome.windows.getAll()
+  const plan = planWindowConsolidation({ tabs, windows, config, storedHomeWindow: homeWindow })
+  if (plan.clearHome) homeWindow = null
+  if (!plan.needed) return { applied: false, moved: 0 }
+
+  let target = plan.targetWindowId ?? homeWindow
+  let moved = 0
+  if (plan.create) {
+    const created = await chrome.windows.create({
+      tabId: plan.seedTabId ?? undefined,
+      focused: config.focusDedicatedWindow === true,
+    })
+    target = created?.id ?? null
+    moved += 1
+  }
+  if (target == null) return { applied: moved > 0, moved }
+  if (plan.moveTabIds.length > 0) {
+    await chrome.tabs.move(plan.moveTabIds, { windowId: target, index: -1 })
+    moved += plan.moveTabIds.length
+  }
+  homeWindow = target
+  return { applied: moved > 0, moved }
+}
+
+/**
  * Execute one plan. Failures are per action, so one ungroupable window never
  * stops the others.
  */
 async function reconcile(reason) {
-  const tabs = await chrome.tabs.query({})
+  let tabs = await chrome.tabs.query({})
+  const errors = []
+  let moved = 0
+  let windowsMoved = 0
+
+  /* ---- pass 1: dedicated window -------------------------------------- *
+   * Runs before grouping because a cross-window move drops the tab's group
+   * membership — grouping first would only mean grouping twice. */
+  try {
+    const windowPlan = await consolidateWindows(tabs)
+    if (windowPlan.applied) {
+      windowsMoved = windowPlan.moved
+      // Window ids and group ids both changed, so re-read before grouping.
+      tabs = await chrome.tabs.query({})
+    }
+  } catch (error) {
+    errors.push(String(error?.message ?? error))
+  }
+
+  /* ---- pass 2: grouping ---------------------------------------------- */
   const groups = await chrome.tabGroups.query({})
   const plan = planAssignments({ tabs, groups, config, storedByWindow: groupByWindow })
   const tabById = new Map(tabs.filter((tab) => tab.id != null).map((tab) => [tab.id, tab]))
-  const errors = []
-  let moved = 0
   const touchedGroups = new Set()
 
   /** Group one batch, retrying without pinned tabs when Chromium refuses them. */
@@ -149,6 +210,7 @@ async function reconcile(reason) {
     matched: summarize(tabs, groups, config, groupByWindow).matched,
     moved,
     groups: touchedGroups.size,
+    windowsMoved,
     errors,
   }
   if (errors.length > 0) warn('归组过程中出现错误', errors)
@@ -156,6 +218,7 @@ async function reconcile(reason) {
     matched: lastRun.matched,
     moved,
     groups: touchedGroups.size,
+    windowsMoved,
     errors: errors.length,
   })
   return lastRun

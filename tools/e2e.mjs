@@ -9,8 +9,10 @@
  *
  *   PLAYWRIGHT_PATH="/path/to/node_modules/playwright" node tools/e2e.mjs
  *
- * Optional real-GUI lane (opens the live DeepSeek Harness Web GUI):
+ * Optional real-GUI lane. Give it your own GUI, or let the scratch orchestrator
+ * hand it one (`GUI_URL` is what tools/with-scratch-profile.sh exports):
  *   DSH_E2E_URL="http://127.0.0.1:3080/?token=..." node tools/e2e.mjs
+ *   bash tools/with-scratch-profile.sh node tools/e2e.mjs
  */
 
 import { createServer } from 'node:http'
@@ -27,7 +29,8 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const EXTENSION_PATH = join(HERE, '..')
 
 const HEADED = process.env.E2E_HEADED === '1'
-const REAL_URL = process.env.DSH_E2E_URL || ''
+/** A live DSH GUI to test against: the mounted one (`GUI_URL`) or your own. */
+const REAL_URL = process.env.GUI_URL || process.env.DSH_E2E_URL || ''
 /** 'chromium' (Playwright's own build) or 'msedge' / 'chrome' for a real install. */
 const CHANNEL = process.env.E2E_CHANNEL || 'chromium'
 const POLL_INTERVAL_MS = 150
@@ -142,6 +145,7 @@ async function main() {
             url: tab.pendingUrl || tab.url,
             title: tab.title,
             groupId: tab.groupId,
+            windowId: tab.windowId,
             pinned: tab.pinned,
           })),
           groups: groups.map((group) => ({
@@ -162,6 +166,17 @@ async function main() {
     const tabsInGroup = async (groupId) => {
       const state = await readBrowser()
       return state.tabs.filter((tab) => tab.groupId === groupId)
+    }
+    /**
+     * Which of the tabs in this browser are DSH tabs, judged the way the
+     * extension judges them (the mock DSH pages carry the real title; `/docs`
+     * deliberately does not).
+     */
+    const isDshUrl = (url) => {
+      const value = url ?? ''
+      if (value.startsWith(base)) return value.includes('/dsh')
+      if (REAL_URL !== '') return value.startsWith(REAL_URL.split('?')[0])
+      return false
     }
 
     /* ---------------------------------------------- 1. first DSH tab groups */
@@ -428,6 +443,95 @@ async function main() {
       `组内 ${revivedTabs.length} 个`,
     )
     await revived.close()
+
+    /* ------------ 5c. dedicated window mode, switched on from the UI ------- *
+     * Opt-in and off by default, so this section turns it on through the real
+     * options page, then asserts against the browser's own window topology. */
+
+    const winA = await context.newPage()
+    await winA.goto(`${base}/dsh?winA=1`)
+    const winA2 = await context.newPage()
+    await winA2.goto(`${base}/dsh?winA=2`)
+    // A second window whose only tab is a DSH one — the plan should adopt it as
+    // home (window A also holds ordinary tabs, so it can never be home).
+    const isolatedUrl = `${base}/dsh?isolated=1`
+    const isolatedWindowId = await worker.evaluate(
+      async (url) => (await chrome.windows.create({ url, focused: false }))?.id ?? null,
+      isolatedUrl,
+    )
+    check('测试前置：另一个窗口里已有一个 DSH 标签页', typeof isolatedWindowId === 'number')
+    await waitFor('隔离窗口里的标签页已加载', async () => {
+      const state = await readBrowser()
+      return state.tabs.some((tab) => (tab.url ?? '').includes('isolated=1'))
+    })
+
+    const optionsPage = await context.newPage()
+    await optionsPage.goto(`chrome-extension://${extensionId}/src/options.html`)
+    await optionsPage.waitForSelector('#dedicatedWindow')
+    check(
+      '设置页出现了「把所有 DSH 标签页收进一个专属窗口」开关（默认关）',
+      (await optionsPage.isChecked('#dedicatedWindow')) === false,
+    )
+    // A persistent context starts with one about:blank page; remember how many
+    // blank tabs exist so the extension cannot be blamed for that one.
+    const blanksBefore = (await readBrowser()).tabs.filter((tab) => /^about:blank/.test(tab.url ?? '')).length
+
+    await optionsPage.check('#dedicatedWindow')
+    await optionsPage.click('button[type="submit"]')
+    await optionsPage.waitForFunction(
+      () => (document.getElementById('status')?.textContent ?? '').includes('已保存'),
+      undefined,
+      { timeout: TIMEOUT_MS },
+    )
+
+    const consolidated = await waitFor('所有 DSH 标签页聚到同一个窗口', async () => {
+      const state = await readBrowser()
+      const dsh = state.tabs.filter((tab) => isDshUrl(tab.url))
+      if (dsh.length < 3) return null
+      return new Set(dsh.map((tab) => tab.windowId)).size === 1 ? state : null
+    })
+    const dshTabs = consolidated.tabs.filter((tab) => isDshUrl(tab.url))
+    const homeWindowId = dshTabs[0]?.windowId
+    check(
+      `3 个 DSH 标签页被收进同一个窗口（实际 ${dshTabs.length} 个，分布在 ${new Set(dshTabs.map((t) => t.windowId)).size} 个窗口）`,
+      dshTabs.length === 3 && new Set(dshTabs.map((tab) => tab.windowId)).size === 1,
+    )
+    check(
+      '那个窗口里只有 DSH 标签页',
+      consolidated.tabs
+        .filter((tab) => tab.windowId === homeWindowId)
+        .every((tab) => isDshUrl(tab.url)),
+      JSON.stringify(consolidated.tabs.filter((tab) => tab.windowId === homeWindowId).map((tab) => tab.url)),
+    )
+    check(
+      '你自己的普通标签页一个都没被搬走：仍在原来的窗口',
+      consolidated.tabs.filter((tab) => !isDshUrl(tab.url)).every((tab) => tab.windowId !== homeWindowId),
+      JSON.stringify(consolidated.tabs.filter((tab) => !isDshUrl(tab.url)).map((tab) => [tab.url, tab.windowId])),
+    )
+    const homeGroup = consolidated.groups.find((group) => group.windowId === homeWindowId)
+    check('专属窗口里的 DSH 分组也建好了', homeGroup?.title === 'DSH', JSON.stringify(consolidated.groups))
+    const blanksAfter = consolidated.tabs.filter((tab) => /^about:blank/.test(tab.url ?? '')).length
+    check(
+      '启用专属窗口没有新增任何 about:blank 标签页（窗口用 tabId 播种，而不是裸建）',
+      blanksAfter === blanksBefore,
+      `${blanksBefore} → ${blanksAfter}`,
+    )
+
+    // Turn it back off through the same UI path.
+    await optionsPage.uncheck('#dedicatedWindow')
+    await optionsPage.click('button[type="submit"]')
+    await optionsPage.waitForFunction(
+      () => (document.getElementById('status')?.textContent ?? '').includes('已保存'),
+      undefined,
+      { timeout: TIMEOUT_MS },
+    )
+    check('关掉开关后配置真的回到关闭状态', (await optionsPage.isChecked('#dedicatedWindow')) === false)
+    await optionsPage.close()
+    for (const page of [winA, winA2]) await page.close()
+    await waitFor('清理：只剩隔离窗口那一个 DSH 标签页', async () => {
+      const state = await readBrowser()
+      return state.tabs.filter((tab) => isDshUrl(tab.url)).length === 1 ? state : null
+    })
 
     /* ------------------------------------- 6. optional: the real DSH GUI */
 

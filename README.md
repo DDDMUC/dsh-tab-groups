@@ -33,6 +33,8 @@ DSH 插件那一半负责把扩展镜像到固定路径、在 GUI 里检测它�
 ### 特性
 
 - **打开即归组**：DSH 标签页一出现就进组，后开的自动跟上，全关后空组被浏览器自动清掉。
+- **可选的专属窗口**：打开后，所有 DSH 标签页会被收进同一个窗口，且那个窗口里**只有 DSH 标签页**；
+  你自己的普通标签页一个都不会被搬走。
 - **识别靠标题锚点 `DeepSeek Harness`**：一条规则同时覆盖随机 `--port`、`localhost` vs `127.0.0.1`、
   局域网地址、以及 cloudflared 隧道域名（端口规则永远追不上后者）。前缀匹配刻意收紧，
   另一个恰好叫 `DeepSeek Harness Docs` 的站点**不会**被误伤。
@@ -99,7 +101,8 @@ open -a "Microsoft Edge" "edge://extensions/"
 - **什么都不用做**：打开 DSH 标签页它就会进组。
 - **弹窗**（点浏览器工具栏的扩展图标）：看统计、一键「立即归组」、进设置页。
 - **设置页**：组名、组颜色、是否自动折叠、识别规则（标题 / 来源）、是否从别的分组拉过来、
-  是否跳过固定标签页；底部有实时预览。
+  是否跳过固定标签页、以及窗口模式；底部有实时预览。
+- **专属窗口**：设置页「窗口」分区，或 DSH 芯片面板上的「收进专属窗口」开关（两处都是同一个配置）。默认**关闭**。
 - **DSH 里的芯片**：默认一颗状态点（绿=已连接），点开即面板；「隐藏」可整个收掉（刷新恢复）。
 - **从 DSH 页面驱动扩展**（高级）：页面侧协议为 `ping` / `status` / `reconcile` / `set-config`，
   详见[工作原理](#工作原理)。
@@ -156,6 +159,22 @@ Chromium **只**向匹配的页面注入 `chrome.runtime`。于是：
 
 **它故意什么都不暴露**：状态里只有计数，没有任何标签页地址、标题或 ID。
 
+#### 4. 专属窗口模式（默认关闭）
+
+打开后，所有 DSH 标签页会被收进同一个窗口，而这个窗口里**只有 DSH 标签页**。规则：
+
+- **只认领"整窗都已经是 DSH 标签页"的窗口当归属**。你的窗口里只要还有普通标签页，它就永远不会被选中——
+  把你自己开的标签页搬走，比这件事本身要粗暴得多。没有这样的窗口时，就**新建**一个。
+- **新建窗口时用 `tabId` 播种**（把第一个 DSH 标签页直接作为新窗口的初始标签页），而不是裸建一个空窗口：
+  裸建会留下一个多余的 `about:blank` 标签页（实测），端到端里有专门断言盯着"前后 about:blank 数量不变"。
+- **固定标签页不参与**。实测：`chrome.tabs.move` 跨窗口移动固定标签页**会成功但静默取消固定**——
+  悄悄丢掉用户的固定比不搬更糟，所以固定标签页原地不动。
+- **原窗口被搬空后由浏览器自动关闭**（实测），不会留下空壳窗口；扩展也会把记住的窗口 ID 一起丢掉，
+  下次重新挑或重建。
+- **不改焦点**：新建窗口默认 `focused: false`，你在别的窗口干活时不会被弹走（想抢焦点可以在设置里打开）。
+- **移动必然丢分组**（标签组是窗口内的概念），所以窗口归并**先于**归组执行：搬完再在新窗口里归一次，
+  顺序反了就得归两遍。
+
 ### 已知限制
 
 - **macOS 上装不了"静默"扩展。** 唯一能静默装扩展的机制是企业策略
@@ -175,6 +194,8 @@ Chromium **只**向匹配的页面注入 `chrome.runtime`。于是：
   浏览器重启后组 ID 失效，只能按**组名**找回。想避免就保持组名不变，或把"始终使用配置的组名"打开。
 - **不劫持别人的分组**：只认领组名匹配或自己记录过的组；你手动建好、里面恰有一个 DSH 标签页的组
   不会被改名（那个标签页会被拉出来，除非关掉"从别的分组拉过来"）。
+- **专属窗口模式的代价**：开启后，你打开的**第一个** DSH 标签页也会被搬进一个新窗口（因为"整窗只有 DSH 标签页"
+  这个条件一开始不成立）；固定标签页会留在原来的窗口里（原因见上）。默认关闭，就是为了让你自己权衡。
 - **开发者模式提示**：每次启动 Edge 可能提示"停用开发人员模式扩展"，这是浏览器正常提示，选择保留即可。
 - **Safari 用不了这个方案。** 本机实测（macOS 26.7.1 + Safari 27.0）：
   Safari 扩展 API **没有** `tabGroups`，连 `tabs.Tab.groupId` 都不存在；AppleScript 词典
@@ -209,13 +230,16 @@ npm run screenshots
 
 | 通道 | 断言数 | 结果 |
 | --- | --- | --- |
-| 纯逻辑单测（识别 / 分组决策 / 协议与信任边界 / 两张脸一致性 / 宿主镜像） | 60 | **60/60** |
-| 真浏览器端到端（Chromium **与 Microsoft Edge 154.0.4258.53**，含真实 DSH GUI 会话） | 45 | **45/45** |
+| 纯逻辑单测（识别 / 分组决策 / 窗口归并决策 / 协议与信任边界 / 两张脸一致性 / 宿主镜像） | 74 | **74/74** |
+| 真浏览器端到端（Chromium **与 Microsoft Edge 154.0.4258.53**，含真实 DSH GUI 会话） | 53 | **53/53** |
 | 插件挂载（隔离 `DSH_HOME` → 真宿主 → 真浏览器打开该实例 GUI） | 9 | **9/9** |
 
 端到端覆盖：自动建组、组名与颜色、后开的 DSH 标签页自动入组、`DeepSeek Harness Docs` 不被误伤、
 普通网页不被归组、固定标签页被正确放过、弹窗与设置页改配置后真实标签组跟着变、
-重复触发幂等、关标签页后组自动清除、清除后再开能重建；**页面 → 扩展**的协议全线（含非法配置被拒绝）；
+重复触发幂等、关标签页后组自动清除、清除后再开能重建；
+**专属窗口**（在设置页打开开关 → 分散在两个窗口的 3 个 DSH 标签页聚进同一个窗口、该窗口里只有 DSH 标签页、
+你自己的普通标签页一个都没被搬走、专属窗口里的分组也建好了、前后 `about:blank` 数量不变、关掉开关后恢复）；
+**页面 → 扩展**的协议全线（含非法配置被拒绝）；
 以及真实 DSH GUI 里的芯片（零注入由宿主投递、默认收起、点开显示计数、「隐藏」生效、刷新后回来、
 点「立即归组」标签组真的恢复）。
 
@@ -269,6 +293,8 @@ installation and drives it.
 
 - **Grouped on sight**: a DSH tab joins the group the moment it appears, later ones follow, and the browser
   removes the empty group when the last one closes.
+- **An optional dedicated window**: turn it on and every DSH tab is consolidated into one window that holds
+  **nothing but DSH tabs** — not one of your own tabs is moved.
 - **Recognised by the title anchor `DeepSeek Harness`**: one rule covers a random `--port`, `localhost` vs
   `127.0.0.1`, LAN binds and cloudflared tunnel hostnames (which no port rule can ever match). Prefix
   matching is deliberately strict, so an unrelated site titled `DeepSeek Harness Docs` is not caught.
@@ -339,7 +365,9 @@ behaves exactly the same.
 - **Do nothing**: open a DSH tab and it joins the group.
 - **Popup** (click the extension icon): counts, a "group now" button, and a link to the options page.
 - **Options page**: group name, colour, auto-collapse, matching rules (title / origin), whether to pull tabs
-  out of other groups, whether to skip pinned tabs — with a live preview at the bottom.
+  out of other groups, whether to skip pinned tabs, and the window mode — with a live preview at the bottom.
+- **Dedicated window**: the options page's *Window* card, or the "收进专属窗口" switch on the chip inside the
+  DSH GUI (both write the same setting). Off by default.
 - **The chip inside DSH**: a status dot by default (green = connected); click for the panel, and "hide" to
   make it disappear until the next page load.
 - **Driving the extension from the DSH page** (advanced): the page-side protocol is
@@ -398,6 +426,25 @@ pure logic, unit-tested):
 
 **It deliberately exposes nothing else**: status carries counts only — no tab URL, title or id.
 
+#### 4. Dedicated window mode (off by default)
+
+Enabled, every DSH tab is consolidated into one window that holds **nothing but DSH tabs**. The rules:
+
+- **Only a window that is already all-DSH is adopted.** As long as a window of yours still holds an ordinary
+  tab it can never become home — moving your own tabs somewhere would be far more invasive than what was
+  asked for — so a new window is built instead.
+- **The new window is seeded via `tabId`** (one of the DSH tabs becomes its initial tab) rather than created
+  bare: a bare `windows.create()` leaves a stray `about:blank` tab behind (verified), and an end-to-end
+  assertion watches that the blank-tab count never changes.
+- **Pinned tabs never participate.** Verified: a cross-window `chrome.tabs.move` succeeds but **silently
+  unpins** the tab — quietly dropping someone's pin is worse than leaving the tab alone.
+- **A window emptied by the moves is closed by the browser** (verified), so no hollow window is left; the
+  extension forgets the remembered window id with it.
+- **Focus is untouched**: the new window is created with `focused: false`, so you are not yanked out of what
+  you were doing (opt in to stealing focus in the settings).
+- **A move necessarily drops group membership** (groups are per-window), so window consolidation runs
+  *before* grouping: move first, group once in the new window. The other order would group twice.
+
 ### Known limitations
 
 - **No silent extension install on macOS.** The only mechanism that installs an extension silently is the
@@ -421,6 +468,9 @@ pure logic, unit-tested):
 - **Foreign groups are not hijacked**: only a name match or a remembered id is claimed, so a group you built
   by hand that happens to contain a DSH tab is not renamed (the tab is pulled out unless you turn "pull from
   other groups" off).
+- **What the dedicated window costs**: once it is on, even the **first** DSH tab you open is moved into a new
+  window (the "all-DSH window" condition cannot hold yet), and pinned tabs stay behind in their old window
+  (see above). It is off by default precisely so that you get to weigh that.
 - **Developer-mode notice**: Edge may offer to disable developer-mode extensions at startup. That is normal
   browser behaviour; choose to keep it.
 - **Safari cannot do this.** Measured on this machine (macOS 26.7.1 + Safari 27.0): Safari's extension API
@@ -457,14 +507,17 @@ Three lanes, all run on this machine:
 
 | Lane | Assertions | Result |
 | --- | --- | --- |
-| pure-logic unit tests (matching / grouping plan / protocol and its trust boundary / two-face consistency / host mirroring) | 60 | **60/60** |
-| real-browser end to end (Chromium **and Microsoft Edge 154.0.4258.53**, including a live DSH GUI session) | 45 | **45/45** |
+| pure-logic unit tests (matching / grouping plan / window-consolidation plan / protocol and its trust boundary / two-face consistency / host mirroring) | 74 | **74/74** |
+| real-browser end to end (Chromium **and Microsoft Edge 154.0.4258.53**, including a live DSH GUI session) | 53 | **53/53** |
 | plugin mount (throwaway `DSH_HOME` → real host → real browser opening that instance's GUI) | 9 | **9/9** |
 
 The end-to-end lane covers: automatic grouping, group name and colour, later DSH tabs joining by themselves,
 `DeepSeek Harness Docs` not being caught, ordinary pages left alone, pinned tabs correctly skipped, changing
 config in the popup or options page actually renaming/recolouring the browser group, repeated runs being
-idempotent, the empty group disappearing when the last tab closes and being rebuilt afterwards, the whole
+idempotent, the empty group disappearing when the last tab closes and being rebuilt afterwards, the
+**dedicated window** (switching it on from the options page consolidates three DSH tabs spread over two
+windows into one all-DSH window, not one ordinary tab is moved, the group is rebuilt inside it, the
+`about:blank` count is unchanged, and turning it off restores the previous behaviour), the whole
 page → extension protocol (including rejecting invalid config), and the chip inside a real DSH GUI
 (delivered by the host with zero injection, collapsed by default, expanding to show counts, "hide" working,
 returning after a reload, and its "group now" button really restoring the browser group).

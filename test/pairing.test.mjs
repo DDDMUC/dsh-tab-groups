@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url'
 import { EXTENSION_ID, PROTOCOL_VERSION } from '../src/extension-id.js'
 import { extensionIdFromManifestKey } from '../tools/make-key.mjs'
 import { EXTENSION_FACE, DEFAULT_TARGET_DIR, resolveDshHome } from '../lib/index.js'
+import { WRITABLE_KEYS } from '../src/protocol.js'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const manifest = JSON.parse(readFileSync(join(ROOT, 'manifest.json'), 'utf8'))
@@ -132,6 +133,16 @@ test('cordis.patch.yml inserts the bare package name', () => {
   // half would silently never load.
   assert.match(yaml, new RegExp(`name:\\s*'${pkg.name}'`))
   assert.match(yaml, new RegExp(`id:\\s*${pkg.name}`))
+})
+
+test('every config field the chip can write is on the protocol whitelist', () => {
+  // The chip writes these through `set-config`; a field the whitelist forgot
+  // would fail silently at runtime.
+  const written = [...clientSource.matchAll(/save\(\{\s*(\w+):/g)].map((m) => m[1])
+  assert.ok(written.length >= 3, `expected the chip to write config, found ${written.length}`)
+  for (const field of written) {
+    assert.ok(WRITABLE_KEYS.has(field), `${field} is written by the chip but not whitelisted`)
+  }
 })
 
 test('the mirror target lives under the resolved DSH home', () => {

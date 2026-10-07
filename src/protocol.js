@@ -10,7 +10,7 @@ import { DEFAULT_CONFIG, GROUP_COLORS, normalizeConfig, toStringList } from './c
 import { PROTOCOL_VERSION } from './extension-id.js'
 
 /** Keys an external page is allowed to write. Anything else is rejected. */
-const WRITABLE_KEYS = new Set([
+export const WRITABLE_KEYS = new Set([
   'enabled',
   'groupTitle',
   'groupColor',
@@ -21,6 +21,8 @@ const WRITABLE_KEYS = new Set([
   'matchAnyLocalhostPort',
   'moveFromOtherGroups',
   'skipPinned',
+  'dedicatedWindow',
+  'focusDedicatedWindow',
 ])
 
 /** Message types the extension answers. */
@@ -77,7 +79,7 @@ export function sanitizeConfigPatch(patch) {
   if (picked.groupTitle !== undefined && typeof picked.groupTitle !== 'string') {
     return { ok: false, error: 'groupTitle must be a string' }
   }
-  for (const key of ['collapseGroup', 'enforceAppearance', 'matchTitlePrefix', 'matchAnyLocalhostPort', 'moveFromOtherGroups', 'skipPinned']) {
+  for (const key of ['collapseGroup', 'enforceAppearance', 'matchTitlePrefix', 'matchAnyLocalhostPort', 'moveFromOtherGroups', 'skipPinned', 'dedicatedWindow', 'focusDedicatedWindow']) {
     if (picked[key] !== undefined && typeof picked[key] !== 'boolean') {
       return { ok: false, error: `${key} must be a boolean` }
     }
@@ -114,6 +116,8 @@ export function statusPayload({ id, version, config, summary, lastRun }) {
     groupTitle: config.groupTitle,
     groupColor: config.groupColor,
     collapseGroup: config.collapseGroup === true,
+    dedicatedWindow: config.dedicatedWindow === true,
+    focusDedicatedWindow: config.focusDedicatedWindow === true,
     matchTitles: [...config.matchTitles],
     matchOrigins: [...config.matchOrigins],
     /** DSH tabs found, how many still need moving, and how many windows are involved. */
@@ -121,7 +125,13 @@ export function statusPayload({ id, version, config, summary, lastRun }) {
     pending: summary.pending,
     windows: summary.windows,
     lastRun: lastRun
-      ? { at: lastRun.at, reason: lastRun.reason, moved: lastRun.moved, errors: [...lastRun.errors] }
+      ? {
+          at: lastRun.at,
+          reason: lastRun.reason,
+          moved: lastRun.moved,
+          windowsMoved: lastRun.windowsMoved ?? 0,
+          errors: [...lastRun.errors],
+        }
       : null,
   }
 }
