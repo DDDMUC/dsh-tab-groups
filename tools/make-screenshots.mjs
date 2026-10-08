@@ -183,6 +183,43 @@ try {
   console.log('  03-options.png')
   await options.close()
 
+  /* ------------------------- the settings section itself ---------------- */
+
+  // The other seat: 设置 → 「DSH 标签页」. Synthetic clicks, because the shell can
+  // keep a mask mounted over the nav (a real pointer click is then refused).
+  const clickEl = (locator) => locator.evaluate((node) => node.click())
+  await gui.evaluate(() => window.scrollTo(0, 0))
+  await gui.waitForFunction(() => document.querySelector('[data-dsh-boot]') === null, undefined, {
+    timeout: TIMEOUT_MS,
+  })
+  await clickEl(gui.getByText('设置', { exact: true }).first())
+  const navRow = gui.getByText('DSH 标签页', { exact: true }).first()
+  await navRow.waitFor({ timeout: TIMEOUT_MS })
+  await clickEl(navRow)
+  const sectionCard = gui.locator('[data-dsh-tab-groups-section]')
+  if ((await sectionCard.count()) === 0) {
+    await navRow.evaluate((node) => (node.closest('button, [role="tab"], a, li') ?? node).click())
+  }
+  await sectionCard.waitFor({ timeout: TIMEOUT_MS })
+  await gui.waitForFunction(
+    () => /扩展 v\d/.test(document.querySelector('[data-dsh-tab-groups-section]')?.innerText ?? ''),
+    undefined,
+    { timeout: TIMEOUT_MS },
+  )
+  await gui.waitForTimeout(500)
+  const sectionClip = await sectionCard.evaluate((node) => {
+    const rect = node.getBoundingClientRect()
+    const left = Math.max(0, Math.round(rect.x) - 420, 0)
+    return {
+      x: left,
+      y: 0,
+      width: Math.min(window.innerWidth - left, Math.round(rect.width) + 460),
+      height: window.innerHeight,
+    }
+  })
+  await gui.screenshot({ path: join(OUT_DIR, '04-settings-section.png'), clip: sectionClip })
+  console.log('  04-settings-section.png（设置 → DSH 标签页）')
+
   for (const page of extras) await page.close()
   await gui.close()
 
