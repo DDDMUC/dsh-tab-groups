@@ -36,55 +36,70 @@ try {
     throw e
   }
 
-  // The boot screen paints a mask over everything; wait it out before clicking.
-  await page
-    .waitForFunction(() => document.querySelector('[data-dsh-boot]') === null, undefined, { timeout: 20000 })
-    .catch(() => {})
+  // Everything below happens *inside* the page: locator resolution races with
+  // the shell's re-renders (a locator that just resolved can be detached before
+  // the next call), so clicks and lookups are done atomically in the DOM.
+  const clickByText = (label) =>
+    page.evaluate((text) => {
+      const nodes = [...document.querySelectorAll('button, a, [role="tab"], li, [role="button"]')]
+      const hit = nodes.find((node) => (node.textContent ?? '').trim() === text && node.offsetParent !== null)
+      if (hit === undefined) return false
+      hit.click()
+      return true
+    }, label)
 
-  // Synthetic clicks: the shell can keep a mask mounted over the nav, and a real
-  // pointer click is then correctly refused. Clicking the resolved element
-  // directly drives its React handler either way.
-  const clickEl = (locator) => locator.evaluate((node) => node.click())
-  const settingsNav = page.getByText('设置', { exact: true }).first()
-  await settingsNav.waitFor({ timeout: 20000 })
-  await clickEl(settingsNav)
-  check('点到了侧栏的「设置」', true)
+  const hasText = (label) =>
+    page.evaluate((text) => {
+      const nodes = [...document.querySelectorAll('button, a, [role="tab"], li, [role="button"], h1, h2, h3')]
+      return nodes.some((node) => (node.textContent ?? '').trim() === text)
+    }, label)
 
-  // The registrant's nav label must show up in the settings nav, and clicking it
-  // must mount the section.
-  const navRow = page.getByText('DSH 标签页', { exact: true }).first()
-  await navRow.waitFor({ timeout: 20000 })
-  check('设置里出现了插件自己的一级分区「DSH 标签页」', true)
+  // Wait until the shell is interactive: the boot screen paints a mask over
+  // everything, and clicking through it silently does nothing (which is how this
+  // test used to "fail" on a busy instance carrying ~25 client plugins).
+  await page.waitForFunction(
+    () => {
+      if (document.querySelector('[data-dsh-boot]') !== null) return false
+      const nav = [...document.querySelectorAll('button, a, [role="button"]')].find(
+        (node) => (node.textContent ?? '').trim() === '设置',
+      )
+      return nav !== undefined && nav.offsetParent !== null
+    },
+    undefined,
+    { timeout: 30000 },
+  )
 
-  const sectionCard = page.locator('[data-dsh-tab-groups-section]')
-  for (const attempt of ['nav-row', 'closest-button', 'tab-role']) {
-    if ((await sectionCard.count()) > 0) break
-    if (attempt === 'nav-row') await clickEl(navRow)
-    else if (attempt === 'closest-button') {
-      await navRow.evaluate((node) => (node.closest('button, [role="tab"], a, li') ?? node).click())
-    } else {
-      await page
-        .locator('[role="tab"], [role="button"], button, a')
-        .filter({ hasText: 'DSH 标签页' })
-        .first()
-        .evaluate((node) => node.click())
-        .catch(() => {})
-    }
-    await page.waitForTimeout(1200)
+  // Retry: on a fast boot the first click can land before the shell has attached
+  // its handlers, and a click that does nothing is indistinguishable from one
+  // that was ignored. A later click also undoes a mis-toggle, so 3 tries is safe.
+  const dialogOpen = () =>
+    page
+      .waitForFunction(
+        () =>
+          [...document.querySelectorAll('button, a, [role="tab"], li')].some(
+            (node) => (node.textContent ?? '').trim() === '通用设置',
+          ),
+        undefined,
+        { timeout: 8000 },
+      )
+      .then(() => true)
+      .catch(() => false)
+  let opened = false
+  for (let attempt = 1; attempt <= 3 && !opened; attempt += 1) {
+    if (attempt > 1) await page.waitForTimeout(1200)
+    await clickByText('设置')
+    opened = await dialogOpen()
   }
-
-  if ((await sectionCard.count()) === 0) {
-    const panelText = await page.evaluate(() => {
-      const panel = document.querySelector('[class*="panel"], main, [role="tabpanel"]')
-      return (panel?.innerText ?? document.body.innerText).slice(0, 400).replace(/\n+/g, ' | ')
-    })
-    check('点击分区后挂载了设置卡片', false, `面板内容：${panelText}`)
-    throw new Error('设置分区没有挂载，已转储面板内容')
-  }
-
+  check('侧栏「设置」能打开设置对话框', opened, '点了 3 次都没打开')
+  if (!opened) throw new Error('设置对话框打不开，后面的断言没有意义')
+  check('设置里出现了插件自己的一级分区「DSH 标签页」', await hasText('DSH 标签页'))
+  check('点进了「DSH 标签页」分区', await clickByText('DSH 标签页'))
+  await page.waitForFunction(() => document.querySelector('[data-dsh-tab-groups-section]') !== null, undefined, {
+    timeout: 20000,
+  })
+  check('分区里渲染出了插件的设置卡片', true)
   const card = page.locator('[data-dsh-tab-groups-section]')
   await card.waitFor({ timeout: 15000 })
-  check('分区里渲染出了插件的设置卡片', true)
 
   await page
     .waitForFunction(
