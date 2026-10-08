@@ -42,9 +42,12 @@ DSH 插件那一半负责把扩展镜像到固定路径、在 GUI 里检测它�
   （`lib/` + `cordis.patch.yml`）；浏览器忽略插件文件，DSH 忽略扩展文件。
 - **扩展 ID 钉死**：manifest 里钉了公钥 `key`，ID 恒为 `pnncehmieeobfabnbdepbldiknndjbhl`，
   目录挪到哪都不变——这是两张脸能互相寻址的前提。
-- **GUI 里直接管**：右下角芯片默认收起成一颗状态点（几乎不占地方），点开能看实时计数、
-  立即归组、改组名与颜色；扩展没装时它自己展开成三步引导。「隐藏」只在本次页面加载内有效，
-  刷新即回来——芯片是这个插件唯一的界面，不能做成"藏了就再也找不回来"。
+- **座位就在 DSH 设置里**：设置页多出一个一级分区「DSH 标签页」，开关、组名、组颜色、
+  实时计数和「立即归组」都在那儿——插件自己的设置就该待在插件设置页里，这是 DSH 生态的惯例。
+- **外加一颗自愈的状态点**：右下角芯片默认收起成一颗状态点（几乎不占地方），点开是同一套控制；
+  扩展没装时它自己展开成三步引导。「隐藏」只在本次页面加载内有效，刷新即回来。
+  之所以两处都有：设置分区在**最要紧的那个状态**下恰好没用——扩展根本没装时，
+  你不会想到去设置里找它，而芯片就飘在你眼前，还能直接把安装引导摊开。
 - **纯本地**：三个权限（`tabs` / `tabGroups` / `storage`）、**没有任何 host 权限**、不注入内容脚本、
   不发网络请求、不采集数据。
 - **零依赖零构建**：扩展直接加载即用，插件直接挂载即用。
@@ -52,11 +55,17 @@ DSH 插件那一半负责把扩展镜像到固定路径、在 GUI 里检测它�
 ### 截图
 
 <div align="center">
-  <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/02-popup.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/02-popup.png" width="360"></a>
-  &nbsp;&nbsp;
-  <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/03-options.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/03-options.png" width="420"></a>
+  <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/04-settings-section.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/04-settings-section.png" width="600"></a>
   <br>
-  <sub>▲ 左：扩展弹窗（开关 / 统计 / 立即归组）。右：设置页，底部实时列出"按当前规则命中哪些标签页、它们现在在哪个组里"</sub>
+  <sub>▲ DSH 设置里的「DSH 标签页」一级分区：开关、组名、组颜色、实时计数与「立即归组」都在这里</sub>
+  <br><br>
+  <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/01-chip-panel.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/01-chip-panel.png" width="300"></a>
+  &nbsp;&nbsp;
+  <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/02-popup.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/02-popup.png" width="300"></a>
+  &nbsp;&nbsp;
+  <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/03-options.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/03-options.png" width="300"></a>
+  <br>
+  <sub>▲ 左：DSH 里的状态点芯片。中：扩展弹窗（开关 / 统计 / 立即归组）。右：扩展自己的设置页（底部实时列出按当前规则命中哪些标签页）</sub>
 </div>
 
 > 浏览器自己的标签栏属于浏览器内核 UI，任何页面级 API 都截不到，所以这里没有"标签栏截图"——
@@ -102,7 +111,9 @@ open -a "Microsoft Edge" "edge://extensions/"
 - **弹窗**（点浏览器工具栏的扩展图标）：看统计、一键「立即归组」、进设置页。
 - **设置页**：组名、组颜色、是否自动折叠、识别规则（标题 / 来源）、是否从别的分组拉过来、
   是否跳过固定标签页、以及窗口模式；底部有实时预览。
-- **专属窗口**：设置页「窗口」分区，或 DSH 芯片面板上的「收进专属窗口」开关（两处都是同一个配置）。默认**关闭**。
+- **专属窗口**：**DSH 设置 → 「DSH 标签页」**、DSH 芯片面板、或扩展设置页的「窗口」卡片——三处写的是同一份配置。默认**关闭**。
+- **DSH 设置 → 「DSH 标签页」**：常用项（启用、专属窗口、组名、组颜色、计数、立即归组）。
+- **扩展自己的设置页**：识别规则、是否从别的分组拉过来、是否跳过固定标签页等**全部**选项。
 - **DSH 里的芯片**：默认一颗状态点（绿=已连接），点开即面板；「隐藏」可整个收掉（刷新恢复）。
 - **从 DSH 页面驱动扩展**（高级）：页面侧协议为 `ping` / `status` / `reconcile` / `set-config`，
   详见[工作原理](#工作原理)。
@@ -175,6 +186,25 @@ Chromium **只**向匹配的页面注入 `chrome.runtime`。于是：
 - **移动必然丢分组**（标签组是窗口内的概念），所以窗口归并**先于**归组执行：搬完再在新窗口里归一次，
   顺序反了就得归两遍。
 
+#### 5. GUI 里的两处座位，以及一个真实的坑
+
+| 座位 | 是什么 | 为什么要有它 |
+| --- | --- | --- |
+| **设置分区**（设置 → 「DSH 标签页」） | `ctx.slots.inject('settings.section', …)` 注册的 React 组件 | DSH 生态的惯例：插件设置待在插件设置页 |
+| **状态点芯片** | 自持 shadow DOM，不用 React | 扩展未装时唯一能看到的东西，且能自己摊开安装引导 |
+
+仍然**零构建**：加载器会给客户端半区一个 `require`，`require('react')` 就能拿到 React
+（`dsh-free-search` 就是这么做的），所以这个文件既是源码也是产物。
+
+两个踩过的坑，写在这里省得下次再踩：
+
+- **`ctx.slots` 是 cordis 服务，不声明 `inject` 就去访问会抛错**，而 `apply` 一抛，
+  客户端 entry 就变成 `failed`，整个 GUI 启动直接报
+  `web boot: 1 entry did not activate`——**而且不告诉你原因**。所以 `inject = ['slots']`，
+  且所有取用都套了 try/catch。
+- `inject` **只能写成数组**：这个壳把 `{ optional: ['slots'] }` 解析成一个名叫 `optional` 的服务，
+  于是 entry 永远 `pending (waiting for service: optional)`。
+
 ### 已知限制
 
 - **macOS 上装不了"静默"扩展。** 唯一能静默装扩展的机制是企业策略
@@ -209,7 +239,7 @@ Chromium **只**向匹配的页面注入 `chrome.runtime`。于是：
 ### 验证
 
 ```sh
-npm test                    # 60 项纯逻辑单测（node --test，无需浏览器）
+npm test                    # 74 项纯逻辑单测（node --test，无需浏览器）
 npm run id                  # 复查扩展 ID：manifest 的 key、插件常量、client 内联值三者是否一致
 
 # 真实浏览器端到端：加载扩展、开标签页，从扩展自己的 service worker 里读
@@ -222,6 +252,9 @@ node tools/e2e.mjs
 # 插件能不能在真实 DSH 宿主里挂载？（隔离 DSH_HOME，不碰你的 profile 与 ~/.dsh）
 DSH_BIN=/path/to/dsh PLAYWRIGHT_PATH="/path/to/node_modules/playwright" npm run test:mount
 
+# 插件在设置页里的那个分区真的渲染出来、且能写回配置吗？
+DSH_BIN=/path/to/dsh PLAYWRIGHT_PATH="/path/to/node_modules/playwright" npm run test:section
+
 # 重新生成 README 截图（真机截图，非示意图）
 npm run screenshots
 ```
@@ -233,6 +266,7 @@ npm run screenshots
 | 纯逻辑单测（识别 / 分组决策 / 窗口归并决策 / 协议与信任边界 / 两张脸一致性 / 宿主镜像） | 74 | **74/74** |
 | 真浏览器端到端（Chromium **与 Microsoft Edge 154.0.4258.53**，含真实 DSH GUI 会话） | 53 | **53/53** |
 | 插件挂载（隔离 `DSH_HOME` → 真宿主 → 真浏览器打开该实例 GUI） | 9 | **9/9** |
+| 设置分区（同一隔离实例里打开设置 → 点进插件分区 → 勾选并保存） | 8 | **8/8** |
 
 端到端覆盖：自动建组、组名与颜色、后开的 DSH 标签页自动入组、`DeepSeek Harness Docs` 不被误伤、
 普通网页不被归组、固定标签页被正确放过、弹窗与设置页改配置后真实标签组跟着变、
@@ -303,10 +337,14 @@ installation and drives it.
 - **A pinned extension id**: the manifest carries a public `key`, so the id is always
   `pnncehmieeobfabnbdepbldiknndjbhl` wherever the folder lives — the precondition for the two faces to
   address each other.
-- **Managed from inside the GUI**: the corner chip defaults to a single status dot (barely there); click it
-  for live counts, "group now", and group name/colour. When the extension is missing the chip opens itself
-  with a three-step guide. "Hide" lasts only for the current page load and a reload brings it back — the
-  chip is this plugin's only surface, so a sticky hide would be a trap.
+- **Seated in DSH's own settings**: a first-level **DSH 标签页** section appears under Settings, holding the
+  switches, group name, colour, live counts and "group now" — a plugin's settings belong on the plugin
+  settings page, which is where the DSH ecosystem puts them.
+- **Plus a self-healing status dot**: the corner chip collapses to one dot and opens onto the same controls.
+  It expands itself into the three-step guide when the extension is missing. "Hide" lasts only for the
+  current page load and a reload brings it back. Both seats exist because the settings section is useless in
+  the one state that matters most — with no extension installed you would not think to look in settings,
+  while the chip is right there and can lay the install guide out for you.
 - **Local only**: three permissions (`tabs` / `tabGroups` / `storage`), **no host permissions**, no content
   scripts, no network requests, no telemetry.
 - **Zero dependencies, zero build**: load the extension and it runs; mount the plugin and it runs.
@@ -314,11 +352,17 @@ installation and drives it.
 ### Screenshots
 
 <div align="center">
-  <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/02-popup.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/02-popup.png" width="360"></a>
-  &nbsp;&nbsp;
-  <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/03-options.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/03-options.png" width="420"></a>
+  <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/04-settings-section.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/04-settings-section.png" width="600"></a>
   <br>
-  <sub>▲ Left: the extension popup (switch / counts / group now). Right: the options page, whose footer lists live which tabs the current rules match and which group each is in</sub>
+  <sub>▲ The plugin's own first-level section under DSH Settings: switches, group name, colour, live counts and "group now"</sub>
+  <br><br>
+  <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/01-chip-panel.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/01-chip-panel.png" width="300"></a>
+  &nbsp;&nbsp;
+  <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/02-popup.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/02-popup.png" width="300"></a>
+  &nbsp;&nbsp;
+  <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/03-options.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/03-options.png" width="300"></a>
+  <br>
+  <sub>▲ Left: the status-dot chip inside DSH. Middle: the extension popup (switch / counts / group now). Right: the extension's own options page, whose footer lists live which tabs the current rules match</sub>
 </div>
 
 > The browser's own tab strip is browser chrome that no page-level API can capture, so there is no tab-strip
@@ -366,8 +410,12 @@ behaves exactly the same.
 - **Popup** (click the extension icon): counts, a "group now" button, and a link to the options page.
 - **Options page**: group name, colour, auto-collapse, matching rules (title / origin), whether to pull tabs
   out of other groups, whether to skip pinned tabs, and the window mode — with a live preview at the bottom.
-- **Dedicated window**: the options page's *Window* card, or the "收进专属窗口" switch on the chip inside the
-  DSH GUI (both write the same setting). Off by default.
+- **Dedicated window**: **DSH Settings → 标签页**, the chip inside the DSH GUI, or the extension's own
+  *Window* card — all three write the same setting. Off by default.
+- **DSH Settings → 标签页**: the everyday controls (enable, dedicated window, group name, colour, counts,
+  group now).
+- **The extension's own options page**: *every* option, including the matching rules, whether to pull tabs
+  out of other groups, and whether to skip pinned tabs.
 - **The chip inside DSH**: a status dot by default (green = connected); click for the panel, and "hide" to
   make it disappear until the next page load.
 - **Driving the extension from the DSH page** (advanced): the page-side protocol is
@@ -445,6 +493,25 @@ Enabled, every DSH tab is consolidated into one window that holds **nothing but 
 - **A move necessarily drops group membership** (groups are per-window), so window consolidation runs
   *before* grouping: move first, group once in the new window. The other order would group twice.
 
+#### 5. Two seats in the GUI, and one trap worth recording
+
+| Seat | What it is | Why it must exist |
+| --- | --- | --- |
+| **Settings section** (Settings → DSH 标签页) | a React component registered through `ctx.slots.inject('settings.section', …)` | the DSH convention: a plugin's settings live on the plugin settings page |
+| **Status-dot chip** | self-contained shadow DOM, no React | the only thing visible when the extension is missing — and it can open the guide itself |
+
+Still **zero build**: the loader hands the client half a `require`, so `require('react')` works
+(`dsh-free-search` does exactly this). This file is both the source and the artifact.
+
+Two traps, recorded so they are not stepped in twice:
+
+- **`ctx.slots` is a cordis service, and reading it without declaring `inject` throws.** A throw in `apply`
+  turns the client entry `failed` and the whole GUI boot dies with
+  `web boot: 1 entry did not activate` — **without saying why**. Hence `inject = ['slots']`, plus try/catch
+  around every access.
+- **`inject` only accepts the array form here.** `{ optional: ['slots'] }` is parsed as a service literally
+  named `optional`, leaving the entry forever `pending (waiting for service: optional)`.
+
 ### Known limitations
 
 - **No silent extension install on macOS.** The only mechanism that installs an extension silently is the
@@ -509,6 +576,7 @@ Three lanes, all run on this machine:
 | --- | --- | --- |
 | pure-logic unit tests (matching / grouping plan / window-consolidation plan / protocol and its trust boundary / two-face consistency / host mirroring) | 74 | **74/74** |
 | real-browser end to end (Chromium **and Microsoft Edge 154.0.4258.53**, including a live DSH GUI session) | 53 | **53/53** |
+| the settings section (open Settings in the same isolated instance → pick the plugin's section → toggle and save) | 8 | **8/8** |
 | plugin mount (throwaway `DSH_HOME` → real host → real browser opening that instance's GUI) | 9 | **9/9** |
 
 The end-to-end lane covers: automatic grouping, group name and colour, later DSH tabs joining by themselves,

@@ -1,6 +1,6 @@
 {
   "name": "dsh-tab-groups",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Automatically group every DeepSeek Harness (DSH) Web GUI tab into one browser tab group. One package, two faces: the Chromium extension owns all grouping behaviour, and the DSH plugin mirrors it to a fixed path, detects it in the Web GUI, guides installation and drives it.",
   "type": "module",
   "main": "lib/index.js",
@@ -42,10 +42,11 @@
   "scripts": {
     "icons": "node tools/make-icons.mjs",
     "id": "node tools/make-key.mjs",
+    "screenshots": "bash tools/with-scratch-profile.sh node tools/make-screenshots.mjs",
     "test": "node --test test/*.test.mjs",
     "test:e2e": "node tools/e2e.mjs",
     "test:mount": "bash tools/verify-profile.sh",
-    "screenshots": "bash tools/with-scratch-profile.sh node tools/make-screenshots.mjs"
+    "test:section": "bash tools/with-scratch-profile.sh node tools/verify-section.mjs"
   },
   "dsh": {
     "engines": {
