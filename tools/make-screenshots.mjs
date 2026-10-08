@@ -122,6 +122,31 @@ try {
   )
   await gui.waitForTimeout(500)
 
+  /**
+   * A fresh profile is a first run, and this shell shows a *chain* of first-run
+   * modals — 「预览版说明」, then 「添加一个 API Key 开始使用」 (」稍后配置」), possibly
+   * more. Two of them landed in the middle of a screenshot before. Settle the
+   * page: click every dismissive control until two passes in a row find nothing.
+   */
+  const settle = async () => {
+    const labels = ['继续', '跳过', '知道了', '完成', '开始使用', '同意', '稍后配置', '以后再说', '稍后再说', '跳过这一步']
+    let quiet = 0
+    for (let attempt = 0; attempt < 12 && quiet < 2; attempt += 1) {
+      const clicked = await gui.evaluate((wanted) => {
+        const hit = [...document.querySelectorAll('button')].find(
+          (node) => wanted.includes((node.textContent ?? '').trim()) && node.offsetParent !== null,
+        )
+        if (hit === undefined) return false
+        hit.click()
+        return true
+      }, labels)
+      quiet = clicked ? 0 : quiet + 1
+      await gui.waitForTimeout(clicked ? 700 : 400)
+    }
+  }
+  await settle()
+
+  await settle()
   const clip = await gui.evaluate((padding) => {
     const wrap = document.getElementById('dsh-tab-groups-bridge').shadowRoot.querySelector('.wrap')
     const rect = wrap.getBoundingClientRect()
@@ -192,6 +217,7 @@ try {
   await gui.waitForFunction(() => document.querySelector('[data-dsh-boot]') === null, undefined, {
     timeout: TIMEOUT_MS,
   })
+  await settle()
   await clickEl(gui.getByText('设置', { exact: true }).first())
   const navRow = gui.getByText('DSH 标签页', { exact: true }).first()
   await navRow.waitFor({ timeout: TIMEOUT_MS })
@@ -219,6 +245,65 @@ try {
   })
   await gui.screenshot({ path: join(OUT_DIR, '04-settings-section.png'), clip: sectionClip })
   console.log('  04-settings-section.png（设置 → DSH 标签页）')
+
+  /* ------------------- this plugin's own page in「插件」------------------ */
+
+  // The other seat, and the one people actually click: the Plugins section lists
+  // the bundle; its page gains our card between the description and the component
+  // rows. The component row itself is a status list and is not clickable — which
+  // is exactly the confusion this screenshot answers.
+  await gui.evaluate(() => {
+    const close = [...document.querySelectorAll('button')].find(
+      (node) => (node.textContent ?? '').trim() === '关闭' && node.offsetParent !== null,
+    )
+    close?.click()
+  })
+  await gui.waitForTimeout(700)
+  await clickEl(gui.getByText('插件', { exact: true }).first())
+  await gui.waitForFunction(() => document.body.innerText.includes('安装、启用和配置插件'), undefined, {
+    timeout: TIMEOUT_MS,
+  })
+  await gui.waitForFunction(
+    () =>
+      [...document.querySelectorAll('button')].some(
+        (node) => (node.textContent ?? '').trim() === 'dsh-tab-groups',
+      ),
+    undefined,
+    { timeout: TIMEOUT_MS },
+  )
+  await gui.evaluate(() => {
+    const button = [...document.querySelectorAll('button')].find(
+      (node) => (node.textContent ?? '').trim() === 'dsh-tab-groups',
+    )
+    button?.click()
+  })
+  await gui.waitForFunction(() => document.body.innerText.includes('包含的组件'), undefined, {
+    timeout: TIMEOUT_MS,
+  })
+  // Wait for the *connected* card (`扩展 vX`), not just the version line: the
+  // install guide carries the same plugin version and made a screenshot of the
+  // wrong state look plausible.
+  await gui.waitForFunction(
+    () => /插件 v\d+\.\d+\.\d+ · 扩展 v\d/.test(document.querySelector('[data-dsh-tab-groups-section]')?.innerText ?? ''),
+    undefined,
+    { timeout: TIMEOUT_MS },
+  )
+  await settle()
+  await gui.waitForTimeout(600)
+  await settle()
+  const bundleClip = await gui.evaluate(() => {
+    const card = document.querySelector('[data-dsh-tab-groups-section]')
+    const rect = card.getBoundingClientRect()
+    const top = Math.max(0, Math.round(rect.top) - 150)
+    return {
+      x: Math.max(0, Math.round(rect.left) - 40),
+      y: top,
+      width: Math.min(window.innerWidth - Math.max(0, Math.round(rect.left) - 40), Math.round(rect.width) + 80),
+      height: Math.min(window.innerHeight - top, Math.round(rect.height) + 230),
+    }
+  })
+  await gui.screenshot({ path: join(OUT_DIR, '05-plugin-page.png'), clip: bundleClip })
+  console.log('  05-plugin-page.png（插件分区 → 本插件页）')
 
   for (const page of extras) await page.close()
   await gui.close()

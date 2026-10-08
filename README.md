@@ -42,8 +42,10 @@ DSH 插件那一半负责把扩展镜像到固定路径、在 GUI 里检测它�
   （`lib/` + `cordis.patch.yml`）；浏览器忽略插件文件，DSH 忽略扩展文件。
 - **扩展 ID 钉死**：manifest 里钉了公钥 `key`，ID 恒为 `pnncehmieeobfabnbdepbldiknndjbhl`，
   目录挪到哪都不变——这是两张脸能互相寻址的前提。
-- **座位就在 DSH 设置里**：设置页多出一个一级分区「DSH 标签页」，开关、组名、组颜色、
-  实时计数和「立即归组」都在那儿——插件自己的设置就该待在插件设置页里，这是 DSH 生态的惯例。
+- **座位就在 DSH 里，两处**：设置页多了个一级分区「DSH 标签页」；同时**本插件在「插件」分区里的那一页**
+  也多出一块同样的设置区（就在包描述与「包含的组件」之间）。两处都写同一份配置。
+- **版本号不再含糊**：卡片上写的是 `插件 v0.5.0 · 扩展 v0.5.0 · 协议 v1`——左边是**本插件**的版本，
+  右边是你**浏览器里实际加载的那个扩展**的版本。只写一个版本号时它必然被误读成插件版本（我自己就这么误读过）。
 - **外加一颗自愈的状态点**：右下角芯片默认收起成一颗状态点（几乎不占地方），点开是同一套控制；
   扩展没装时它自己展开成三步引导。「隐藏」只在本次页面加载内有效，刷新即回来。
   之所以两处都有：设置分区在**最要紧的那个状态**下恰好没用——扩展根本没装时，
@@ -58,6 +60,10 @@ DSH 插件那一半负责把扩展镜像到固定路径、在 GUI 里检测它�
   <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/04-settings-section.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/04-settings-section.png" width="600"></a>
   <br>
   <sub>▲ DSH 设置里的「DSH 标签页」一级分区：开关、组名、组颜色、实时计数与「立即归组」都在这里</sub>
+  <br><br>
+  <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/05-plugin-page.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/05-plugin-page.png" width="600"></a>
+  <br>
+  <sub>▲ 另一处：DSH「插件」分区里本插件自己的页面——设置区落在包描述与「包含的组件」之间（后者永远不可点）</sub>
   <br><br>
   <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/01-chip-panel.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/01-chip-panel.png" width="300"></a>
   &nbsp;&nbsp;
@@ -113,6 +119,9 @@ open -a "Microsoft Edge" "edge://extensions/"
   是否跳过固定标签页、以及窗口模式；底部有实时预览。
 - **专属窗口**：**DSH 设置 → 「DSH 标签页」**、DSH 芯片面板、或扩展设置页的「窗口」卡片——三处写的是同一份配置。默认**关闭**。
 - **DSH 设置 → 「DSH 标签页」**：常用项（启用、专属窗口、组名、组颜色、计数、立即归组）。
+- **DSH →「插件」→ 点 dsh-tab-groups 那一行**：同一块设置区出现在**该插件自己的页面上**。
+  注意那页底部的「包含的组件」是**状态清单、永远不可点**（它的交互只有右侧的启用开关）——
+  设置不在那一行里，而在它上面。
 - **扩展自己的设置页**：识别规则、是否从别的分组拉过来、是否跳过固定标签页等**全部**选项。
 - **DSH 里的芯片**：默认一颗状态点（绿=已连接），点开即面板；「隐藏」可整个收掉（刷新恢复）。
 - **从 DSH 页面驱动扩展**（高级）：页面侧协议为 `ping` / `status` / `reconcile` / `set-config`，
@@ -188,9 +197,10 @@ Chromium **只**向匹配的页面注入 `chrome.runtime`。于是：
 
 #### 5. GUI 里的两处座位，以及一个真实的坑
 
-| 座位 | 是什么 | 为什么要有它 |
+| 座位 | 槽 | 为什么要有它 |
 | --- | --- | --- |
-| **设置分区**（设置 → 「DSH 标签页」） | `ctx.slots.inject('settings.section', …)` 注册的 React 组件 | DSH 生态的惯例：插件设置待在插件设置页 |
+| **一级设置分区**（设置 → 「DSH 标签页」） | `settings.section`（list） | DSH 生态的惯例：插件设置待在插件设置页 |
+| **「插件」分区里本插件那一页** | `plugins.bundle.config`（**keyed**，key = 包名） | 装完插件的人会去插件页找，那里本来只有一段描述和不可点的组件清单 |
 | **状态点芯片** | 自持 shadow DOM，不用 React | 扩展未装时唯一能看到的东西，且能自己摊开安装引导 |
 
 仍然**零构建**：加载器会给客户端半区一个 `require`，`require('react')` 就能拿到 React
@@ -204,6 +214,10 @@ Chromium **只**向匹配的页面注入 `chrome.runtime`。于是：
   且所有取用都套了 try/catch。
 - `inject` **只能写成数组**：这个壳把 `{ optional: ['slots'] }` 解析成一个名叫 `optional` 的服务，
   于是 entry 永远 `pending (waiting for service: optional)`。
+- **"插件"分区里的那个槽不是 `settings.plugins.tab`**：那个槽属于**「内置插件」**分区，用来放各家内置插件的视图；
+  第三方 bundle 的配置归 `plugins.bundle.config`（按包名 key），渲染在自己那一页上。
+- **已访问过的设置面板仍然留在 DOM 里但带 `hidden`**：所以"元素存在"不等于"分区正在显示"，
+  自动化里必须按**可见**判定（`offsetParent`/`:visible`），否则会读到上一屏残留的节点。
 
 ### 已知限制
 
@@ -269,7 +283,7 @@ npm run screenshots
 | 纯逻辑单测（识别 / 分组决策 / 窗口归并决策 / 协议与信任边界 / 两张脸一致性 / 宿主镜像） | 74 | **74/74** |
 | 真浏览器端到端（Chromium **与 Microsoft Edge 154.0.4258.53**，含真实 DSH GUI 会话） | 53 | **53/53** |
 | 插件挂载（隔离 `DSH_HOME` → 真宿主 → 真浏览器打开该实例 GUI） | 9 | **9/9** |
-| 设置分区（隔离实例与用户实时实例都跑：打开设置 → 点进插件分区 → 勾选并保存） | 9 | **9/9** |
+| 插件界面（隔离实例与用户实时实例都跑：一级设置分区 + 插件页那一块，覆盖可见性、版本显示、勾选保存） | 14 | **14/14** |
 
 端到端覆盖：自动建组、组名与颜色、后开的 DSH 标签页自动入组、`DeepSeek Harness Docs` 不被误伤、
 普通网页不被归组、固定标签页被正确放过、弹窗与设置页改配置后真实标签组跟着变、
@@ -358,6 +372,10 @@ installation and drives it.
   <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/04-settings-section.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/04-settings-section.png" width="600"></a>
   <br>
   <sub>▲ The plugin's own first-level section under DSH Settings: switches, group name, colour, live counts and "group now"</sub>
+  <br><br>
+  <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/05-plugin-page.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/05-plugin-page.png" width="600"></a>
+  <br>
+  <sub>▲ The other seat: this plugin's own page in the Plugins section, where the card lands between the package description and the (never clickable) component rows</sub>
   <br><br>
   <a href="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/01-chip-panel.png"><img src="https://raw.githubusercontent.com/DDDMUC/dsh-tab-groups/main/docs/screenshots/01-chip-panel.png" width="300"></a>
   &nbsp;&nbsp;
@@ -579,7 +597,7 @@ Four lanes, all run on this machine:
 | --- | --- | --- |
 | pure-logic unit tests (matching / grouping plan / window-consolidation plan / protocol and its trust boundary / two-face consistency / host mirroring) | 74 | **74/74** |
 | real-browser end to end (Chromium **and Microsoft Edge 154.0.4258.53**, including a live DSH GUI session) | 53 | **53/53** |
-| the settings section (run against both an isolated instance and the live one: open Settings → pick the plugin's section → toggle and save) | 9 | **9/9** |
+| the plugin's own UI (run against both an isolated instance and the live one: the Settings section *and* the Plugins-page card, covering visibility, version display and a saved toggle) | 14 | **14/14** |
 | plugin mount (throwaway `DSH_HOME` → real host → real browser opening that instance's GUI) | 9 | **9/9** |
 
 The end-to-end lane covers: automatic grouping, group name and colour, later DSH tabs joining by themselves,

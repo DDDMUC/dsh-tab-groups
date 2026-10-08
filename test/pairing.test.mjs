@@ -135,6 +135,18 @@ test('cordis.patch.yml inserts the bare package name', () => {
   assert.match(yaml, new RegExp(`id:\\s*${pkg.name}`))
 })
 
+test('the version the card prints is this package\'s version', () => {
+  // The client half cannot read the host's version (the shell reports only
+  // `version: 'client'` for itself), so it is pinned in lib/client.js. This is
+  // the guard that makes pinning it safe: the card used to print the browser
+  // extension's version with no plugin version beside it, which read as if the
+  // plugin were the older one.
+  const pinned = /const PLUGIN_VERSION = '([^']+)'/.exec(clientSource)?.[1]
+  assert.ok(pinned, 'lib/client.js no longer pins PLUGIN_VERSION')
+  assert.equal(pinned, manifest.version, 'PLUGIN_VERSION must equal manifest.json')
+  assert.equal(pinned, pkg.version, 'PLUGIN_VERSION must equal package.json')
+})
+
 test('every config field the chip can write is on the protocol whitelist', () => {
   // The chip writes these through `set-config`; a field the whitelist forgot
   // would fail silently at runtime.
