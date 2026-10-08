@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "DSH 标签页自动分组",
   "short_name": "DSH Tab Groups",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "把浏览器中所有指向 DeepSeek Harness（DSH）Web GUI 的标签页自动收进同一个标签组，并允许 DSH GUI 页面直接查询状态、触发归组与改配置。纯本地运行，不联网、不上报。",
   "minimum_chrome_version": "89",
   "permissions": [
