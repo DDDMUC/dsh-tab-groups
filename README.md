@@ -252,6 +252,9 @@ node tools/e2e.mjs
 # 插件能不能在真实 DSH 宿主里挂载？（隔离 DSH_HOME，不碰你的 profile 与 ~/.dsh）
 DSH_BIN=/path/to/dsh PLAYWRIGHT_PATH="/path/to/node_modules/playwright" npm run test:mount
 
+# does the plugin's own section under Settings really render, and can it write config back?
+DSH_BIN=/path/to/dsh PLAYWRIGHT_PATH="/path/to/node_modules/playwright" npm run test:section
+
 # 插件在设置页里的那个分区真的渲染出来、且能写回配置吗？
 DSH_BIN=/path/to/dsh PLAYWRIGHT_PATH="/path/to/node_modules/playwright" npm run test:section
 
@@ -259,14 +262,14 @@ DSH_BIN=/path/to/dsh PLAYWRIGHT_PATH="/path/to/node_modules/playwright" npm run 
 npm run screenshots
 ```
 
-三层验证，每层都在本机跑过：
+四层验证，每层都在本机跑过：
 
 | 通道 | 断言数 | 结果 |
 | --- | --- | --- |
 | 纯逻辑单测（识别 / 分组决策 / 窗口归并决策 / 协议与信任边界 / 两张脸一致性 / 宿主镜像） | 74 | **74/74** |
 | 真浏览器端到端（Chromium **与 Microsoft Edge 154.0.4258.53**，含真实 DSH GUI 会话） | 53 | **53/53** |
 | 插件挂载（隔离 `DSH_HOME` → 真宿主 → 真浏览器打开该实例 GUI） | 9 | **9/9** |
-| 设置分区（同一隔离实例里打开设置 → 点进插件分区 → 勾选并保存） | 8 | **8/8** |
+| 设置分区（隔离实例与用户实时实例都跑：打开设置 → 点进插件分区 → 勾选并保存） | 9 | **9/9** |
 
 端到端覆盖：自动建组、组名与颜色、后开的 DSH 标签页自动入组、`DeepSeek Harness Docs` 不被误伤、
 普通网页不被归组、固定标签页被正确放过、弹窗与设置页改配置后真实标签组跟着变、
@@ -553,7 +556,7 @@ Two traps, recorded so they are not stepped in twice:
 ### Verification
 
 ```sh
-npm test                    # 60 pure-logic unit tests (node --test, no browser)
+npm test                    # 74 pure-logic unit tests (node --test, no browser)
 npm run id                  # check that the manifest key, the plugin constant and the inlined client literal agree
 
 # real-browser end to end: load the extension, open tabs, and read chrome.tabGroups
@@ -570,13 +573,13 @@ DSH_BIN=/path/to/dsh PLAYWRIGHT_PATH="/path/to/node_modules/playwright" npm run 
 npm run screenshots
 ```
 
-Three lanes, all run on this machine:
+Four lanes, all run on this machine:
 
 | Lane | Assertions | Result |
 | --- | --- | --- |
 | pure-logic unit tests (matching / grouping plan / window-consolidation plan / protocol and its trust boundary / two-face consistency / host mirroring) | 74 | **74/74** |
 | real-browser end to end (Chromium **and Microsoft Edge 154.0.4258.53**, including a live DSH GUI session) | 53 | **53/53** |
-| the settings section (open Settings in the same isolated instance → pick the plugin's section → toggle and save) | 8 | **8/8** |
+| the settings section (run against both an isolated instance and the live one: open Settings → pick the plugin's section → toggle and save) | 9 | **9/9** |
 | plugin mount (throwaway `DSH_HOME` → real host → real browser opening that instance's GUI) | 9 | **9/9** |
 
 The end-to-end lane covers: automatic grouping, group name and colour, later DSH tabs joining by themselves,
@@ -590,7 +593,7 @@ page → extension protocol (including rejecting invalid config), and the chip i
 (delivered by the host with zero injection, collapsed by default, expanding to show counts, "hide" working,
 returning after a reload, and its "group now" button really restoring the browser group).
 
-The third lane is the load-bearing one: a throwaway profile containing only the core web bundles plus this
+The mount lane is the load-bearing one: a throwaway profile containing only the core web bundles plus this
 package boots a real instance, the host half must really write the mirror, **the real host must deliver the
 plugin's browser half to a real browser** (no injection anywhere), and the chip must connect to the extension
 with no JavaScript error on the page. None of these lanes install anything into your profile or `~/.dsh`.
