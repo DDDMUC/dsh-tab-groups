@@ -19,8 +19,8 @@
  * before the shell has attached its handlers. Both were mistaken for product
  * bugs once — they were this test's bugs.
  */
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { loadPlaywright } from './playwright-loader.mjs'
 
@@ -39,8 +39,26 @@ const check = (name, value, detail = '') => {
   console.log(`  ${value ? '✔' : '✖'} ${name}${value || !detail ? '' : `\n      ${detail}`}`)
 }
 
+/**
+ * Isolated instance or the live one?
+ *
+ * `tools/with-scratch-profile.sh` sets `PROFILE_DIR`; anything else means we are
+ * pointed at a GUI the user is actually using. That distinction matters for the
+ * browser profile: the live GUI authenticates the browser with a signed cookie
+ * (the `?token=` only mints it), and that cookie is what survives the frequent
+ * `dsh web` restarts. A throwaway profile is a brand-new guest every run and
+ * therefore needs a fresh token each time — which is precisely the papercut this
+ * arrangement removes.
+ */
+const SCRATCH = Boolean(process.env.PROFILE_DIR)
+const dir =
+  process.env.SECTION_PROFILE_DIR ??
+  (SCRATCH
+    ? mkdtempSync(join(tmpdir(), 'verify-section-'))
+    : join(homedir(), '.dsh-tab-groups-gui-profile'))
+mkdirSync(dir, { recursive: true })
+
 const { chromium } = await loadPlaywright()
-const dir = mkdtempSync(join(tmpdir(), 'verify-section-'))
 const context = await chromium.launchPersistentContext(dir, {
   channel: CHANNEL,
   headless: true,
@@ -60,9 +78,32 @@ try {
   })
 
   await page.goto(GUI, { waitUntil: 'domcontentloaded' })
-  await page.waitForFunction(() => document.getElementById('dsh-tab-groups-bridge') !== null, undefined, {
-    timeout: 40000,
-  })
+  const unauthorized = await page.evaluate(() => /authentication required/i.test(document.body.innerText))
+  if (unauthorized) {
+    console.error(
+      `\n这个 URL 的 token 已失效（宿主重启过）：${GUI}\n` +
+        '请用 `npm run live-url` 取当前 URL，或改用 `npm run test:section:live`；\n' +
+        `若本机已有可用的浏览器 profile，直接访问裸地址 http://127.0.0.1:${new URL(GUI).port}/ 也行（cookie 仍在有效期内）。`,
+    )
+    process.exit(3)
+  }
+  // The chip is the plugin's own canary: if the client half never mounts, the
+  // plugin is not running at all (disabled, missing from the profile's bundles,
+  // or its host half threw) — which is a different failure from a broken UI, and
+  // the raw timeout says none of that.
+  try {
+    await page.waitForFunction(() => document.getElementById('dsh-tab-groups-bridge') !== null, undefined, {
+      timeout: 40000,
+    })
+  } catch {
+    console.error(
+      '\n芯片没有出现 —— 这个实例上 dsh-tab-groups 根本没在跑（不是界面坏了）。\n' +
+        '  在 GUI 的 设置 → 插件 里看它是否被停用；或确认 profile 的 package.json 里\n' +
+        '  `dsh.profile.bundles` 含 "dsh-tab-groups"（装了但没进 bundles 就等于没启用）。\n' +
+        '  重新启用：dsh plugin --profile <profile> add "link:<本仓库目录>"，然后重启宿主。',
+    )
+    process.exit(4)
+  }
   check('插件芯片挂载成功（说明客户端半区激活了，没有把启动搞挂）', true)
 
   /**
@@ -291,7 +332,7 @@ try {
   check('插件自己没有报出注册失败', !pluginLogs.some((line) => /dsh-tab-groups/.test(line)), pluginLogs.join(' | '))
 } finally {
   await context.close().catch(() => {})
-  rmSync(dir, { recursive: true, force: true })
+  if (SCRATCH) rmSync(dir, { recursive: true, force: true })
 }
 
 const failed = results.filter((result) => !result.ok)

@@ -42,11 +42,13 @@
   "scripts": {
     "icons": "node tools/make-icons.mjs",
     "id": "node tools/make-key.mjs",
+    "live-url": "node tools/live-url.mjs",
     "screenshots": "bash tools/with-scratch-profile.sh node tools/make-screenshots.mjs",
     "test": "node --test test/*.test.mjs",
     "test:e2e": "node tools/e2e.mjs",
     "test:mount": "bash tools/verify-profile.sh",
-    "test:section": "bash tools/with-scratch-profile.sh node tools/verify-section.mjs"
+    "test:section": "bash tools/with-scratch-profile.sh node tools/verify-section.mjs",
+    "test:section:live": "bash tools/verify-live.sh"
   },
   "dsh": {
     "engines": {
